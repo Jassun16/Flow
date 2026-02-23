@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +12,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities  = [Feed::class, Article::class],
-    version   = 1,
+    version   = 2,
     exportSchema = false   // set true later if you want schema version history files
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +21,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun articleDao(): ArticleDao
 
     companion object {
+
+        // ── Migration 1 → 2: add unique index on article URL ─────────
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                            "index_articles_url ON articles(url)"
+                )
+            }
+        }
         @Volatile   // ensures all threads see the latest value immediately
         private var INSTANCE: AppDatabase? = null
 
@@ -45,6 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "flow_database"
             )
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -61,6 +73,7 @@ abstract class AppDatabase : RoomDatabase() {
                     }
                 })
                 .build()
+                .also { INSTANCE = it }
         }
 
     }

@@ -159,9 +159,11 @@ class ReaderViewModel @Inject constructor(
                     .readText()
 
                 val parsed = Readability4J(url, pageHtml).parse()
-                parsed.contentWithUtf8Encoding
+                val extractedHtml = parsed.contentWithUtf8Encoding
                     ?: parsed.content
-                    ?: null
+                    ?: return@withContext null
+
+                ContentCleaner.clean(extractedHtml)
 
             } catch (e: Exception) {
                 Log.w("ReaderViewModel", "fetchFullPageContent failed for $url", e)
@@ -169,6 +171,7 @@ class ReaderViewModel @Inject constructor(
             }
         }
     }
+
 
     // ── Everything below is UNCHANGED from your original ──────────────────
 

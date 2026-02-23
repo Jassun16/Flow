@@ -16,7 +16,10 @@ import androidx.room.PrimaryKey
             onDelete      = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("feedId")]   // speeds up queries filtering by feedId
+    indices = [
+        Index("feedId"),
+        Index(value = ["url"], unique = true)   // unique based on URL as there are duplicates
+    ]
 )
 data class Article(
     @PrimaryKey(autoGenerate = true)
