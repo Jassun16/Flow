@@ -1,0 +1,77 @@
+[versions]
+agp                  = "9.0.1"
+kotlin               = "2.2.10"
+coreKtx              = "1.15.0"
+lifecycleRuntimeKtx  = "2.8.7"
+activityCompose      = "1.9.3"
+composeBom           = "2025.02.00"
+room                 = "2.7.0"
+hilt                 = "2.54"
+hiltNavigationCompose= "1.2.0"
+navigationCompose    = "2.8.5"
+retrofit             = "2.11.0"
+okhttp               = "4.12.0"
+jsoup                = "1.18.3"
+coil                 = "3.0.4"
+datastore            = "1.1.2"
+coroutines           = "1.9.0"
+mlkitGenaiCommon     = "1.0.0-beta1"
+mlkitSummarization   = "1.0.0-beta1"
+splashscreen         = "1.2.0"
+
+[libraries]
+# Core Android
+androidx-core-ktx            = { group = "androidx.core",     name = "core-ktx",              version.ref = "coreKtx" }
+androidx-lifecycle-runtime   = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-activity-compose    = { group = "androidx.activity",  name = "activity-compose",      version.ref = "activityCompose" }
+androidx-splashscreen        = { group = "androidx.core",      name = "core-splashscreen",     version.ref = "splashscreen" }
+
+# Jetpack Compose (BOM controls all compose versions together)
+compose-bom          = { group = "androidx.compose", name = "compose-bom",       version.ref = "composeBom" }
+compose-ui           = { group = "androidx.compose.ui",       name = "ui" }
+compose-ui-tooling   = { group = "androidx.compose.ui",       name = "ui-tooling-preview" }
+compose-material3    = { group = "androidx.compose.material3", name = "material3" }
+compose-icons        = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# Navigation
+navigation-compose   = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+
+# Room (local database)
+room-runtime         = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx             = { group = "androidx.room", name = "room-ktx",     version.ref = "room" }
+room-compiler        = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+
+# Hilt (dependency injection)
+hilt-android         = { group = "com.google.dagger", name = "hilt-android",          version.ref = "hilt" }
+hilt-compiler        = { group = "com.google.dagger", name = "hilt-android-compiler",  version.ref = "hilt" }
+hilt-navigation      = { group = "androidx.hilt",     name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+
+# Network
+retrofit             = { group = "com.squareup.retrofit2", name = "retrofit",        version.ref = "retrofit" }
+retrofit-converter   = { group = "com.squareup.retrofit2", name = "converter-scalars", version.ref = "retrofit" }
+okhttp               = { group = "com.squareup.okhttp3",   name = "okhttp",           version.ref = "okhttp" }
+okhttp-logging       = { group = "com.squareup.okhttp3",   name = "logging-interceptor", version.ref = "okhttp" }
+
+# HTML Parsing (Readability)
+jsoup                = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+
+# Image Loading
+coil-compose         = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+coil-network         = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
+
+# DataStore (settings/preferences)
+datastore-prefs      = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# Coroutines
+coroutines-android   = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# Gemini Nano (on-device AI)
+mlkit-genai-common        = { group = "com.google.mlkit", name = "genai-common",        version.ref = "mlkitGenaiCommon" }
+mlkit-genai-summarization = { group = "com.google.mlkit", name = "genai-summarization", version.ref = "mlkitSummarization" }
+
+[plugins]
+android-application  = { id = "com.android.application",          version.ref = "agp" }
+kotlin-android       = { id = "org.jetbrains.kotlin.android",      version.ref = "kotlin" }
+kotlin-compose       = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+hilt                 = { id = "com.google.dagger.hilt.android",    version.ref = "hilt" }
+ksp                  = { id = "com.google.devtools.ksp",           version    = "2.3.2" }

@@ -1,0 +1,32 @@
+# ── Build outputs ──────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+build/
+/app/build/
+output-metadata.json
+
+# ── Gradle ─────────────────────────────────────────────
+.gradle/
+gradle-wrapper.jar
+
+# ── Android Studio / IntelliJ ──────────────────────────
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ── Local config (machine-specific SDK paths) ──────────
+local.properties
+
+# ── Signing / secrets — NEVER commit these ─────────────
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# ── Profiling ──────────────────────────────────────────
+*.hprof

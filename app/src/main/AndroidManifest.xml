@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Required for fetching RSS feeds and article content -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".FlowApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Flow"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Flow"
+        android:enableOnBackInvokedCallback="true">
+
+        <!--
+            enableOnBackInvokedCallback = true enables Android 16's
+            Predictive Back Gesture — the fluid back animation you see
+            in Google's own apps. One line enables it for the whole app.
+        -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>
