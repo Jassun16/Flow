@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jassun16.flow.data.db.Article
+import com.jassun16.flow.data.network.ArticleExtractor
 import com.jassun16.flow.data.repository.FlowRepository
 import com.jassun16.flow.data.repository.Result
 import com.jassun16.flow.util.ContentCleaner
@@ -84,7 +85,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    // ── CHANGED: loadFullContent now cleans + handles partial articles ─────
+    // ── Load + clean full content ──────────────────────────────────────────
 
     private suspend fun loadFullContent(article: Article) {
         _uiState.update { it.copy(isLoadingContent = true) }
@@ -93,16 +94,16 @@ class ReaderViewModel @Inject constructor(
             is Result.Success -> {
                 val rawHtml = result.data
 
-                // If content is suspiciously short it's a truncated RSS excerpt.
-                // Fetch the full webpage and re-parse with Readability4J.
                 val finalHtml = if (rawHtml.length < 500) {
                     fetchFullPageContent(article.url) ?: rawHtml
                 } else {
                     rawHtml
                 }
 
-                // Run ContentCleaner: strips junk text, replaces video iframes
-                val cleanedHtml = ContentCleaner.clean(finalHtml)
+                // ── Tier 2+3 → then ContentCleaner ────────────────────
+                val tier23      = ArticleExtractor.cleanHtml(finalHtml, article.url)
+                val cleanedHtml = ContentCleaner.clean(tier23)
+                // ──────────────────────────────────────────────────────
 
                 _uiState.update {
                     it.copy(
@@ -115,16 +116,18 @@ class ReaderViewModel @Inject constructor(
             }
 
             is Result.Error -> {
-                // Repository failed entirely — try fetching the page ourselves
                 val fallback = fetchFullPageContent(article.url)
                 if (fallback != null) {
+                    // ── Tier 2+3 → then ContentCleaner ────────────────
+                    val tier23 = ArticleExtractor.cleanHtml(fallback, article.url)
                     _uiState.update {
                         it.copy(
-                            fullContent       = ContentCleaner.clean(fallback),
+                            fullContent       = ContentCleaner.clean(tier23),
                             isLoadingContent  = false,
                             readabilityFailed = false
                         )
                     }
+                    // ──────────────────────────────────────────────────
                     repository.markAsRead(article.id, article.feedId)
                 } else {
                     _uiState.update {
@@ -140,7 +143,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    // ── NEW: Fetch full webpage and run Readability4J on it ───────────────
+    // ── Fetch full webpage and run Readability4J (Tier 1) ─────────────────
 
     private suspend fun fetchFullPageContent(url: String): String? {
         return withContext(Dispatchers.IO) {
@@ -172,8 +175,7 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-
-    // ── Everything below is UNCHANGED from your original ──────────────────
+    // ── Actions ───────────────────────────────────────────────────────────
 
     fun toggleBookmark() {
         viewModelScope.launch {

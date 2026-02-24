@@ -33,12 +33,16 @@ class ReadabilityFetcher @Inject constructor() {
                 .timeout(15_000)
                 .get()
 
-            val title  = extractTitle(doc)
-            val author = extractAuthor(doc)
-            val body   = extractMainContent(doc)
+            // ── Tier 2+3: clean junk from doc before extraction ──────────
+            val cleanedHtml = ArticleExtractor.cleanHtml(doc.outerHtml(), url)
+            val cleanDoc    = Jsoup.parse(cleanedHtml, url)          // ← use this below
+            // ─────────────────────────────────────────────────────────────
+
+            val title  = extractTitle(cleanDoc)     // ← was doc, now cleanDoc
+            val author = extractAuthor(cleanDoc)    // ← was doc, now cleanDoc
+            val body   = extractMainContent(cleanDoc) // ← was doc, now cleanDoc
 
             if (body.isNullOrBlank() || body.length < 200) {
-                // Content too short — readability failed
                 ReadableArticle(title, "", author, success = false)
             } else {
                 ReadableArticle(

@@ -6,6 +6,10 @@ import org.jsoup.nodes.Element
 object ContentCleaner {
 
     private val JUNK_EXACT = setOf(
+        "follow topics and authors",
+        "follow topics & authors",
+        "topics and authors",
+        "follow on",
         "follow", "followed", "unfollow",
         "subscribe", "subscribed", "unsubscribe",
         "sign up", "sign in", "log in", "login", "register",
@@ -18,8 +22,40 @@ object ContentCleaner {
         "loading…", "loading...", "please wait"
     )
 
+
     fun clean(html: String): String {
         val doc = Jsoup.parse(html)
+
+        // ── Step 0: Whitelist — extract only main article body ────────────
+        // Try known main content containers in order of specificity.
+        // If found, replace doc body with just that content.
+        // This eliminates author bios, sidebars, related articles
+        // from ANY website in one shot — no site-specific selectors needed.
+        val mainContent = doc.select(
+            // ── Semantic / standard ────────────────────────────────
+            "article, " +
+                    "#article-body, " +
+                    ".article-body, " +
+                    "[itemprop=articleBody], " +
+                    ".post-content, " +
+                    ".entry-content, " +
+                    ".story-body, " +
+                    ".content-body, " +
+
+                    // ── The Verge (Chorus) — only the body, not the lede ──
+                    "#zephr-anchor, " +
+
+                    "main"
+        ).firstOrNull()
+
+
+        // Only use the extracted content if it's substantial
+        // (avoids replacing with an empty or tiny element)
+        if (mainContent != null && mainContent.text().length > 200) {
+            doc.body().empty()
+            doc.body().appendChild(mainContent)
+        }
+        // If nothing matched — fall through to existing blacklist approach below
 
         // Step 1: Remove junk elements by class/id selectors
         val junkSelectors = listOf(
@@ -39,6 +75,45 @@ object ContentCleaner {
             ".tag-interaction-popup-menu",
             ".article-header-data",
             ".w-tag-interaction-popup-menu",
+            // ── The Verge — "Follow topics and authors" footer block ──────────
+            ".tly2fw0",
+            ".duet--layout--rail",   // right sidebar with more articles
+
+
+
+            // ── The Verge (Chorus/Vox Media platform) ─────────────────────────
+            ".duet--ledes--standard-lede-bottom",  // author photo + bio card
+            ".duet--article--article-byline",      // "by Jay Peters" line
+            "[class*=duet--article--lede]",        // entire lede header block
+            "[class*=duet--layout--entry-sidebar]",// sidebar content
+
+            // ── TechCrunch (also Chorus platform) ─────────────────────────────
+            "[class*=duet--article--article-body-component-container]",
+            "[class*=tc-events]",
+            "[class*=event-card]",
+            "[class*=promo-card]",
+
+            // ── The Verge (Chorus/Vox Media) ──────────────────────────────────
+            ".duet--ledes--standard-lede-bottom",
+            ".duet--article--article-byline",
+            "[class*=duet--article--lede]",
+            "[class*=duet--layout--entry-sidebar]",
+
+// ── TechCrunch ─────────────────────────────────────────────────────
+            ".wp-block-techcrunch-inline-cta",  // event promo blocks mid-article
+            ".inline-cta__wrapper",             // fallback if above misses
+
+            // ── The Verge — Follow author/topic buttons ────────────────────────
+            "[id^=follow-author]",       // follow author button containers
+            "[id^=follow-topic]",        // follow topic button containers
+            "[class*=gnx4pm]",           // Verge's follow pill component
+            ".duet--ledes--standard-lede-bottom",  // already there — keeps author card gone
+            "[class*=duet--article--related]",     // related articles row
+            "[class*=duet--article--tags]",        // tags/topics row at bottom
+            "[class*=duet--article--comments]",    // comments section
+            "[class*=duet--universal--box]",       // generic promo boxes
+
+
 
             // ── Generic ────────────────────────────────────────────────────
             "[class*=social]",    "[id*=social]",
@@ -66,7 +141,7 @@ object ContentCleaner {
         doc.select("p, div > span, li").forEach { el ->
             if (el.children().isEmpty()) {
                 val text = el.text().trim()
-                if (text.length < 80 && isJunkText(text)) el.remove()
+                if (text.length < 120 && isJunkText(text)) el.remove()
             }
         }
 

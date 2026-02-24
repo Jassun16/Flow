@@ -40,12 +40,10 @@ fun ReaderScreen(
     val uiState   by viewModel.uiState.collectAsState()
     val isDark    = isSystemInDarkTheme()
 
-    // ── State ────────────────────────────────────────────────────────────
     var showBars          by remember { mutableStateOf(true) }
     var lastSavedPosition by remember { mutableIntStateOf(0) }
     var loadedHtml        by remember { mutableStateOf("") }
 
-    // ── Full edge-to-edge immersive — restores on back ───────────────────
     DisposableEffect(Unit) {
         window?.let { w ->
             WindowCompat.setDecorFitsSystemWindows(w, false)
@@ -70,7 +68,6 @@ fun ReaderScreen(
         }
     }
 
-    // ── Snackbar ─────────────────────────────────────────────────────────
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -79,10 +76,8 @@ fun ReaderScreen(
         }
     }
 
-    // ── Root Box — WebView fills full screen, bars float on top ─────────
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Content ───────────────────────────────────────────────────────
         when {
 
             uiState.isLoadingContent -> {
@@ -99,6 +94,7 @@ fun ReaderScreen(
                 }
             }
 
+            // ── CHANGED: Tier 1 via WebView — runs Readability.js on page ──
             uiState.readabilityFailed -> {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -111,6 +107,8 @@ fun ReaderScreen(
                     }
                 )
             }
+
+            // ── END CHANGE ──────────────────────────────────────────────────
 
             uiState.fullContent != null -> {
                 val article = uiState.article
@@ -126,7 +124,6 @@ fun ReaderScreen(
                     )
                 } else ""
 
-                // Tap gesture detector — tap anywhere to toggle bars
                 val gestureDetector = remember {
                     GestureDetector(
                         context,
@@ -162,23 +159,19 @@ fun ReaderScreen(
                         }
                     },
                     update = { webView ->
-
-                        // Scroll direction → auto-hide bars
                         webView.setOnScrollChangeListener { _, _, newY, _, oldY ->
                             val delta = newY - oldY
                             when {
-                                newY <= 60  -> showBars = true   // Near top — always show
-                                delta > 12  -> showBars = false  // Scrolling down → hide
-                                delta < -12 -> showBars = true   // Scrolling up → show
+                                newY <= 60  -> showBars = true
+                                delta > 12  -> showBars = false
+                                delta < -12 -> showBars = true
                             }
-                            // Save scroll position
                             if (abs(newY - lastSavedPosition) > 50) {
                                 lastSavedPosition = newY
                                 viewModel.saveScrollPosition(newY)
                             }
                         }
 
-                        // Restore scroll position after page loads
                         webView.webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 if (uiState.scrollPosition > 0) {
@@ -187,8 +180,6 @@ fun ReaderScreen(
                             }
                         }
 
-                        // Only reload HTML when content actually changes
-                        // (prevents reload on every recomposition e.g. showBars toggle)
                         if (finalHtml.isNotEmpty() && finalHtml != loadedHtml) {
                             loadedHtml = finalHtml
                             webView.loadDataWithBaseURL(
@@ -200,7 +191,7 @@ fun ReaderScreen(
             }
         }
 
-        // ── Floating Top Bar — slides in/out from top ─────────────────────
+        // ── Floating Top Bar ──────────────────────────────────────────────
         AnimatedVisibility(
             visible  = showBars,
             modifier = Modifier.align(Alignment.TopCenter),
@@ -211,8 +202,8 @@ fun ReaderScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (isDark) Color(0xE6000000)   // 90% black
-                        else Color(0xE6FFFFFF)           // 90% white
+                        if (isDark) Color(0xE6000000)
+                        else Color(0xE6FFFFFF)
                     )
                     .statusBarsPadding()
             ) {
@@ -232,7 +223,6 @@ fun ReaderScreen(
                     }
                     Spacer(Modifier.weight(1f))
 
-                    // Listen / Stop
                     IconButton(onClick = { viewModel.toggleListen(context) }) {
                         Icon(
                             if (uiState.isListening) Icons.Default.StopCircle
@@ -242,7 +232,6 @@ fun ReaderScreen(
                         )
                     }
 
-                    // AI Summary
                     IconButton(onClick = { viewModel.generateSummary() }) {
                         if (uiState.isSummarizing) {
                             CircularProgressIndicator(
@@ -258,7 +247,6 @@ fun ReaderScreen(
                         }
                     }
 
-                    // Bookmark
                     IconButton(onClick = { viewModel.toggleBookmark() }) {
                         Icon(
                             if (uiState.isBookmarked) Icons.Default.Bookmark
@@ -270,7 +258,6 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Share
                     IconButton(onClick = { viewModel.shareArticle(context) }) {
                         Icon(
                             Icons.Default.Share,
@@ -282,7 +269,7 @@ fun ReaderScreen(
             }
         }
 
-        // ── Floating Bottom Bar — slides in/out from bottom ───────────────
+        // ── Floating Bottom Bar ───────────────────────────────────────────
         if (uiState.prevArticleId != null || uiState.nextArticleId != null) {
             AnimatedVisibility(
                 visible  = showBars,
@@ -343,7 +330,6 @@ fun ReaderScreen(
             }
         }
 
-        // ── Snackbar ──────────────────────────────────────────────────────
         SnackbarHost(
             hostState = snackbarHostState,
             modifier  = Modifier.align(Alignment.BottomCenter)
@@ -397,18 +383,14 @@ private fun buildReaderHtml(
                 margin: 0; padding: 0;
             }
             body {
-                /* Georgia: designed for screens, used by Pocket/Instapaper */
                 font-family: Georgia, 'Times New Roman', serif;
                 font-size: 18px;
                 line-height: 1.78;
-                /* top/bottom padding leaves space for floating bars */
                 padding: 72px 22px 100px 22px;
                 -webkit-text-size-adjust: none;
                 word-break: break-word;
                 overflow-wrap: break-word;
             }
-
-            /* ── Title ──────────────────────────────────────── */
             .article-title {
                 font-family: -apple-system, system-ui, sans-serif;
                 font-size: 23px;
@@ -418,8 +400,6 @@ private fun buildReaderHtml(
                 color: $headColor;
                 margin: 0 0 10px 0;
             }
-
-            /* ── Meta ───────────────────────────────────────── */
             .article-meta {
                 font-family: -apple-system, system-ui, sans-serif;
                 font-size: 12px;
@@ -427,147 +407,35 @@ private fun buildReaderHtml(
                 margin: 0 0 18px 0;
                 line-height: 1.4;
             }
-            .article-meta .source {
-                color: $linkColor;
-                font-weight: 600;
-            }
-
-            /* ── Divider ────────────────────────────────────── */
-            .section-divider {
-                border: none;
-                border-top: 1px solid $divColor;
-                margin: 0 0 22px 0;
-            }
-
-            /* ── AI Summary card ────────────────────────────── */
-            .summary-card {
-                background: $summaryBg;
-                border-radius: 12px;
-                padding: 14px 16px;
-                margin-bottom: 24px;
-            }
-            .summary-label {
-                font-family: -apple-system, system-ui, sans-serif;
-                font-size: 10px;
-                font-weight: 700;
-                letter-spacing: 0.6px;
-                text-transform: uppercase;
-                color: $summaryClr;
-                margin-bottom: 7px;
-            }
-            .summary-body {
-                font-family: -apple-system, system-ui, sans-serif;
-                font-size: 15px;
-                line-height: 1.6;
-                color: $summaryClr;
-            }
-
-            /* ── Body text ──────────────────────────────────── */
-            p {
-                margin: 0 0 20px 0;
-            }
-
-            /* ── Headings ───────────────────────────────────── */
-            h1, h2, h3, h4, h5, h6 {
-                font-family: -apple-system, system-ui, sans-serif;
-                color: $headColor;
-                line-height: 1.3;
-                letter-spacing: -0.2px;
-                margin: 30px 0 10px 0;
-            }
+            .article-meta .source { color: $linkColor; font-weight: 600; }
+            .section-divider { border: none; border-top: 1px solid $divColor; margin: 0 0 22px 0; }
+            .summary-card { background: $summaryBg; border-radius: 12px; padding: 14px 16px; margin-bottom: 24px; }
+            .summary-label { font-family: -apple-system, system-ui, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: $summaryClr; margin-bottom: 7px; }
+            .summary-body { font-family: -apple-system, system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: $summaryClr; }
+            p { margin: 0 0 20px 0; }
+            h1, h2, h3, h4, h5, h6 { font-family: -apple-system, system-ui, sans-serif; color: $headColor; line-height: 1.3; letter-spacing: -0.2px; margin: 30px 0 10px 0; }
             h1 { font-size: 22px; font-weight: 700; }
             h2 { font-size: 19px; font-weight: 700; }
             h3 { font-size: 17px; font-weight: 600; }
             h4 { font-size: 15px; font-weight: 600; }
-
-            /* ── Images ─────────────────────────────────────── */
-            img {
-                display: block !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                height: auto !important;
-                border-radius: 10px;
-                margin: 20px auto !important;
-                object-fit: cover;
-            }
-            /* Hide 1x1 tracking pixels */
-            img[width="1"], img[height="1"],
-            img[width="0"], img[height="0"] {
-                display: none !important;
-            }
-            figure {
-                margin: 20px 0;
-                padding: 0;
-            }
-            figcaption {
-                font-family: -apple-system, system-ui, sans-serif;
-                font-size: 13px;
-                color: $metaColor;
-                text-align: center;
-                margin-top: 6px;
-                font-style: italic;
-                line-height: 1.4;
-            }
-
-            /* ── Links ──────────────────────────────────────── */
+            img { display: block !important; width: 100% !important; max-width: 100% !important; height: auto !important; border-radius: 10px; margin: 20px auto !important; object-fit: cover; }
+            img[width="1"], img[height="1"], img[width="0"], img[height="0"] { display: none !important; }
+            figure { margin: 20px 0; padding: 0; }
+            figcaption { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; color: $metaColor; text-align: center; margin-top: 6px; font-style: italic; line-height: 1.4; }
             a { color: $linkColor; text-decoration: none; }
-
-            /* ── Blockquotes ────────────────────────────────── */
-            blockquote {
-                background: $quoteBg;
-                border-left: 3px solid $linkColor;
-                border-radius: 0 8px 8px 0;
-                margin: 22px 0;
-                padding: 10px 16px;
-                font-style: italic;
-                color: $metaColor;
-            }
+            blockquote { background: $quoteBg; border-left: 3px solid $linkColor; border-radius: 0 8px 8px 0; margin: 22px 0; padding: 10px 16px; font-style: italic; color: $metaColor; }
             blockquote p { margin: 0; }
-
-            /* ── Code ───────────────────────────────────────── */
-            pre {
-                background: $codeBg;
-                border-radius: 8px;
-                padding: 14px;
-                overflow-x: auto;
-                margin: 18px 0;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-            code {
-                background: $codeBg;
-                border-radius: 4px;
-                padding: 2px 5px;
-                font-size: 0.88em;
-                font-family: 'Courier New', monospace;
-            }
+            pre { background: $codeBg; border-radius: 8px; padding: 14px; overflow-x: auto; margin: 18px 0; font-size: 14px; line-height: 1.5; }
+            code { background: $codeBg; border-radius: 4px; padding: 2px 5px; font-size: 0.88em; font-family: 'Courier New', monospace; }
             pre code { background: none; padding: 0; font-size: inherit; }
-
-            /* ── Tables ─────────────────────────────────────── */
-            table {
-                width: 100%; border-collapse: collapse;
-                margin: 20px 0; font-size: 15px;
-                font-family: -apple-system, system-ui, sans-serif;
-            }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px; font-family: -apple-system, system-ui, sans-serif; }
             th, td { padding: 9px 12px; border-bottom: 1px solid $divColor; text-align: left; }
             th { font-weight: 600; color: $headColor; }
-
-            /* ── Lists ──────────────────────────────────────── */
             ul, ol { padding-left: 22px; margin: 0 0 20px 0; }
             li { margin-bottom: 7px; }
-
-            /* ── Horizontal rule ────────────────────────────── */
             hr { border: none; border-top: 1px solid $divColor; margin: 28px 0; }
-
-            /* ── Strong / em ────────────────────────────────── */
             strong, b { color: $headColor; }
-
-            /* ── Hide website UI junk that Readability misses ── */
-            button, form, input[type="text"],
-            input[type="email"], input[type="submit"],
-            select, textarea {
-                display: none !important;
-            }
+            button, form, input[type="text"], input[type="email"], input[type="submit"], select, textarea { display: none !important; }
         </style>
         </head>
         <body>
