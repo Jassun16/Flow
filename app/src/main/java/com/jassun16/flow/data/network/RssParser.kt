@@ -182,7 +182,7 @@ class RssParser @Inject constructor() {
                                         feedFaviconUrl     = feedFaviconUrl,
                                         title              = cleanText(title),
                                         url                = link.trim(),
-                                        thumbnailUrl       = thumbnail,
+                                        thumbnailUrl       = thumbnail ?: extractImageFromHtml(description),
                                         excerpt            = cleanExcerpt,
                                         fullContent        = null,
                                         author             = author.takeIf { it.isNotEmpty() },
@@ -233,4 +233,10 @@ class RssParser @Inject constructor() {
         }
         return System.currentTimeMillis()
     }
+}
+
+private fun extractImageFromHtml(html: String): String? {
+    val imgRegex = Regex("""<img[^>]+src\s*=\s*["']([^"']{10,})["']""", RegexOption.IGNORE_CASE)
+    return imgRegex.find(html)?.groupValues?.get(1)
+        ?.takeIf { it.startsWith("http") }
 }

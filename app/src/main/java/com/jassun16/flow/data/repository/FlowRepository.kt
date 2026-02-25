@@ -102,7 +102,8 @@ class FlowRepository @Inject constructor(
                 val allArticles = deferredResults.awaitAll().flatten()
                 android.util.Log.d("FlowDebug", "Total articles fetched: ${allArticles.size}")
 
-                articleDao.insertArticles(allArticles)
+                val insertedIds = articleDao.insertArticles(allArticles)
+                val newCount = insertedIds.count { it != -1L }
 
                 feeds.forEach { feed ->
                     val count = articleDao.getUnreadCountForFeed(feed.id)
@@ -112,7 +113,7 @@ class FlowRepository @Inject constructor(
                 val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
                 articleDao.deleteOldArticles(thirtyDaysAgo)
 
-                Result.Success(allArticles.size)
+                Result.Success(newCount)
 
             } catch (e: Exception) {
                 android.util.Log.e("FlowDebug", "Refresh error: ${e.message}", e)

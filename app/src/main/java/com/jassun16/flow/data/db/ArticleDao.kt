@@ -28,7 +28,7 @@ interface ArticleDao {
 
     // IGNORE = skip if article with same URL already exists (no duplicates on refresh)
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertArticles(articles: List<Article>)
+    suspend fun insertArticles(articles: List<Article>): List<Long>
 
     @Update
     suspend fun updateArticle(article: Article)

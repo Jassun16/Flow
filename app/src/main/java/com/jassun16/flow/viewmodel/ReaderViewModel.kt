@@ -17,7 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,8 +29,6 @@ data class ReaderUiState(
     val isLoadingContent: Boolean = false,
     val readabilityFailed: Boolean = false,
     val scrollPosition: Int = 0,
-    val prevArticleId: Long? = null,
-    val nextArticleId: Long? = null,
     val isBookmarked: Boolean = false,
     val summary: String? = null,
     val isSummarizing: Boolean = false,
@@ -69,15 +66,6 @@ class ReaderViewModel @Inject constructor(
                     article        = article.toUiItem(),
                     scrollPosition = article.scrollPosition,
                     isBookmarked   = article.isBookmarked
-                )
-            }
-
-            val allArticles = repository.getAllArticles().first()
-            val index = allArticles.indexOfFirst { it.id == articleId }
-            _uiState.update {
-                it.copy(
-                    prevArticleId = if (index > 0) allArticles[index - 1].id else null,
-                    nextArticleId = if (index < allArticles.lastIndex) allArticles[index + 1].id else null
                 )
             }
 

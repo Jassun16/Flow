@@ -1,6 +1,5 @@
 package com.jassun16.flow.ui.screens
 
-import android.app.Activity
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.webkit.WebView
@@ -19,23 +18,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
 
+
 @Composable
 fun ReaderScreen(
-    articleId:  Long,
-    onBack:     () -> Unit,
-    onNavigate: (Long) -> Unit
+    articleId: Long,
+    onBack:    () -> Unit
 ) {
     val context   = LocalContext.current
-    val activity  = context as? Activity
-    val window    = activity?.window
     val viewModel = hiltViewModel<ReaderViewModel>()
     val uiState   by viewModel.uiState.collectAsState()
     val isDark    = isSystemInDarkTheme()
@@ -44,29 +38,7 @@ fun ReaderScreen(
     var lastSavedPosition by remember { mutableIntStateOf(0) }
     var loadedHtml        by remember { mutableStateOf("") }
 
-    DisposableEffect(Unit) {
-        window?.let { w ->
-            WindowCompat.setDecorFitsSystemWindows(w, false)
-            WindowInsetsControllerCompat(w, w.decorView).apply {
-                hide(
-                    WindowInsetsCompat.Type.statusBars() or
-                            WindowInsetsCompat.Type.navigationBars()
-                )
-                systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        }
-        onDispose {
-            window?.let { w ->
-                WindowCompat.setDecorFitsSystemWindows(w, true)
-                WindowInsetsControllerCompat(w, w.decorView)
-                    .show(
-                        WindowInsetsCompat.Type.statusBars() or
-                                WindowInsetsCompat.Type.navigationBars()
-                    )
-            }
-        }
-    }
+
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.snackbarMessage) {
@@ -124,17 +96,18 @@ fun ReaderScreen(
                     )
                 } else ""
 
-                val gestureDetector = remember {
+                val gestureDetector = remember(onBack) {
                     GestureDetector(
                         context,
                         object : GestureDetector.SimpleOnGestureListener() {
-                            override fun onSingleTapUp(e: MotionEvent): Boolean {
-                                showBars = !showBars
+                            override fun onDoubleTap(e: MotionEvent): Boolean {
+                                onBack()
                                 return true
                             }
                         }
                     )
                 }
+
 
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
@@ -264,67 +237,6 @@ fun ReaderScreen(
                             contentDescription = "Share",
                             tint = if (isDark) Color.White else Color.Black
                         )
-                    }
-                }
-            }
-        }
-
-        // ── Floating Bottom Bar ───────────────────────────────────────────
-        if (uiState.prevArticleId != null || uiState.nextArticleId != null) {
-            AnimatedVisibility(
-                visible  = showBars,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter    = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit     = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (isDark) Color(0xE6000000)
-                            else Color(0xE6FFFFFF)
-                        )
-                        .navigationBarsPadding()
-                ) {
-                    Row(
-                        modifier          = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(
-                            onClick  = { uiState.prevArticleId?.let { onNavigate(it) } },
-                            enabled  = uiState.prevArticleId != null,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Previous", style = MaterialTheme.typography.labelMedium)
-                        }
-
-                        VerticalDivider(
-                            modifier  = Modifier.height(20.dp),
-                            thickness = 0.5.dp,
-                            color     = if (isDark) Color(0xFF3A3A3A) else Color(0xFFCCCCCC)
-                        )
-
-                        TextButton(
-                            onClick  = { uiState.nextArticleId?.let { onNavigate(it) } },
-                            enabled  = uiState.nextArticleId != null,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Next", style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                 }
             }

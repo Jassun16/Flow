@@ -10,6 +10,10 @@ import com.jassun16.flow.ui.screens.BookmarksScreen
 import com.jassun16.flow.ui.screens.FeedsScreen
 import com.jassun16.flow.ui.screens.HomeScreen
 import com.jassun16.flow.ui.screens.ReaderScreen
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+
 
 // ── Route Definitions ──────────────────────────────────────────────────────
 // Centralising route strings here means if you rename a route,
@@ -34,7 +38,11 @@ fun FlowNavigation() {
     // NavHost watches the NavController and renders the correct screen
     NavHost(
         navController    = navController,
-        startDestination = Routes.HOME    // first screen shown on app launch
+        startDestination = Routes.HOME,
+        enterTransition    = { fadeIn(animationSpec  = tween(300)) },
+        exitTransition     = { fadeOut(animationSpec = tween(300)) },
+        popEnterTransition = { fadeIn(animationSpec  = tween(300)) },
+        popExitTransition  = { fadeOut(animationSpec = tween(300)) }
     ) {
 
         // ── Home Screen ────────────────────────────────────────────────────
@@ -54,7 +62,6 @@ fun FlowNavigation() {
         }
 
         // ── Reader Screen ──────────────────────────────────────────────────
-        // ── Reader Screen ──────────────────────────────────────────────────────────
         composable(
             route     = Routes.READER,
             arguments = listOf(
@@ -62,16 +69,9 @@ fun FlowNavigation() {
             )
         ) { backStackEntry ->
             val articleId = backStackEntry.arguments?.getLong("articleId") ?: 0L
-
             ReaderScreen(
-                articleId  = articleId,
-                onBack     = { navController.popBackStack() },
-                onNavigate = { nextArticleId ->
-                    // ✅ FIX: popBackStack() first, then navigate
-                    // Avoids the loop caused by broken popUpTo with parameterised routes
-                    navController.popBackStack()
-                    navController.navigate(Routes.reader(nextArticleId))
-                }
+                articleId = articleId,
+                onBack    = { navController.popBackStack() }
             )
         }
 

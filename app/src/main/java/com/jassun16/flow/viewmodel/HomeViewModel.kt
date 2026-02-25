@@ -18,7 +18,8 @@ data class HomeUiState(
     val feeds: List<FeedUiItem> = emptyList(),
     val articles: List<ArticleUiItem> = emptyList(),
     val isRefreshing: Boolean = false,
-    val snackbarMessage: String? = null
+    val snackbarMessage: String? = null,
+    val shouldScrollToTop: Boolean = false
 )
 
 @HiltViewModel
@@ -54,23 +55,27 @@ class HomeViewModel @Inject constructor(
                     val count = result.data
                     _uiState.update {
                         it.copy(
-                            isRefreshing    = false,
-                            snackbarMessage = "$count new articles fetched"
+                            isRefreshing     = false,
+                            snackbarMessage  = if (count > 0) "$count new articles fetched"
+                            else "Already up to date",
+                            shouldScrollToTop = count > 0   // only scroll if genuinely new articles arrived
                         )
                     }
                 }
                 is Result.Error -> {
                     _uiState.update {
-                        it.copy(
-                            isRefreshing    = false,
-                            snackbarMessage = result.message
-                        )
+                        it.copy(isRefreshing = false, snackbarMessage = result.message)
                     }
                 }
                 else -> _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }
+
+    fun clearScrollToTop() {
+        _uiState.update { it.copy(shouldScrollToTop = false) }
+    }
+
 
     fun clearSnackbar() {
         _uiState.update { it.copy(snackbarMessage = null) }

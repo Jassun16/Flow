@@ -3,6 +3,7 @@ package com.jassun16.flow.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
@@ -33,6 +34,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var selectedFeedId by remember { mutableStateOf<Long?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val listState = rememberLazyListState()
 
     // Filter articles by selected feed or show all
     val displayedArticles = remember(uiState.articles, selectedFeedId) {
@@ -46,6 +48,13 @@ fun HomeScreen(
         uiState.snackbarMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearSnackbar()
+        }
+    }
+
+    LaunchedEffect(uiState.shouldScrollToTop) {
+        if (uiState.shouldScrollToTop) {
+            listState.animateScrollToItem(0)
+            viewModel.clearScrollToTop()
         }
     }
 
@@ -145,6 +154,7 @@ fun HomeScreen(
             } else {
                 // Article list — LazyColumn only renders visible items
                 LazyColumn(
+                    state             = listState,
                     modifier          = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
