@@ -16,12 +16,29 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.jassun16.flow.viewmodel.FeedUiItem
 import com.jassun16.flow.viewmodel.HomeViewModel
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedsScreen(onBack: () -> Unit) {
     val viewModel: HomeViewModel = hiltViewModel()
     val uiState  by viewModel.uiState.collectAsState()
+
+    val activity = LocalContext.current as? ComponentActivity
+    DisposableEffect(Unit) {
+        activity?.window?.let { w ->
+            WindowInsetsControllerCompat(w, w.decorView).apply {
+                show(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            }
+        }
+        onDispose { }
+    }
+
     var showAddDialog  by remember { mutableStateOf(false) }
     var newFeedUrl     by remember { mutableStateOf("") }
     var feedToDelete   by remember { mutableStateOf<FeedUiItem?>(null) }

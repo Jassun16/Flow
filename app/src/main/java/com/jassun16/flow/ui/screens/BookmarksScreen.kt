@@ -14,6 +14,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.ArticleCard
 import com.jassun16.flow.viewmodel.BookmarksViewModel
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +28,17 @@ fun BookmarksScreen(
 ) {
     val viewModel: BookmarksViewModel = hiltViewModel()
     val articles by viewModel.bookmarkedArticles.collectAsState()
+
+    val activity = LocalContext.current as? ComponentActivity
+    LaunchedEffect(Unit) {
+        activity?.window?.let { w ->
+            WindowInsetsControllerCompat(w, w.decorView).apply {
+                show(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            }
+        }
+    }
+
 
     Scaffold(
         topBar = {

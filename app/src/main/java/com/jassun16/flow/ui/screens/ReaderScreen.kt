@@ -22,6 +22,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.activity.ComponentActivity
+import androidx.core.view.WindowInsetsCompat
 
 
 @Composable
@@ -38,6 +41,34 @@ fun ReaderScreen(
     var lastSavedPosition by remember { mutableIntStateOf(0) }
     var loadedHtml        by remember { mutableStateOf("") }
 
+    val activity = LocalContext.current as? ComponentActivity
+    val window   = activity?.window
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        window?.let { w ->
+            WindowInsetsControllerCompat(w, w.decorView).apply {
+                hide(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+                window?.let { w ->
+                    WindowInsetsControllerCompat(w, w.decorView).apply {
+                        show(WindowInsetsCompat.Type.statusBars())
+                        systemBarsBehavior =
+                            WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
 
     val snackbarHostState = remember { SnackbarHostState() }

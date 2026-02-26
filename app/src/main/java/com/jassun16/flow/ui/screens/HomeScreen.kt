@@ -20,6 +20,11 @@ import com.jassun16.flow.ui.components.DrawerContent
 import com.jassun16.flow.viewmodel.FeedUiItem
 import com.jassun16.flow.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +40,18 @@ fun HomeScreen(
     var selectedFeedId by remember { mutableStateOf<Long?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
+
+    val activity = LocalContext.current as? ComponentActivity
+    DisposableEffect(Unit) {
+        activity?.window?.let { w ->
+            WindowInsetsControllerCompat(w, w.decorView).apply {
+                show(WindowInsetsCompat.Type.statusBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            }
+        }
+        onDispose { }
+    }
+
 
     // Filter articles by selected feed or show all
     val displayedArticles = remember(uiState.articles, selectedFeedId) {
