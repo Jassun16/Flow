@@ -165,6 +165,10 @@ class FlowRepository @Inject constructor(
         }
     }
 
+    suspend fun updateReadingTime(articleId: Long, minutes: Int) {
+        articleDao.updateReadingTime(articleId, minutes)
+    }
+
     // ── Read / Unread ──────────────────────────────────────────────────────
 
     suspend fun markAsRead(articleId: Long, feedId: Long) {

@@ -227,15 +227,6 @@ fun ReaderScreen(
                     }
                     Spacer(Modifier.weight(1f))
 
-                    IconButton(onClick = { viewModel.toggleListen(context) }) {
-                        Icon(
-                            if (uiState.isListening) Icons.Default.StopCircle
-                            else Icons.Default.PlayCircle,
-                            contentDescription = "Listen",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
-                    }
-
                     IconButton(onClick = { viewModel.generateSummary() }) {
                         if (uiState.isSummarizing) {
                             CircularProgressIndicator(
@@ -316,6 +307,15 @@ private fun buildReaderHtml(
         <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <style>
+        div[style*="padding-bottom"] {
+            padding-bottom: 0 !important;
+        }
+        .responsive-img, .img-gallery-thumbnail-img {
+            padding-bottom: 0 !important;
+            height: auto !important;
+            position: static !important;
+        }
+
             *, *::before, *::after {
                 box-sizing: border-box;
                 -webkit-tap-highlight-color: transparent;

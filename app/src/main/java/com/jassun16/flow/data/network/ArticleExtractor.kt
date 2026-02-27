@@ -1,7 +1,5 @@
 package com.jassun16.flow.data.network
 
-import android.content.Context
-import android.webkit.WebView
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
@@ -47,10 +45,6 @@ object ArticleExtractor {
         "don't miss",
     )
 
-    /**
-     * TIER 2 + 3: Jsoup-based cleaning.
-     * Call this on raw HTML string before rendering.
-     */
     fun cleanHtml(rawHtml: String, baseUrl: String = ""): String {
         val doc: Document = Jsoup.parse(rawHtml, baseUrl)
 
@@ -58,7 +52,7 @@ object ArticleExtractor {
         genericJunkSelectors.forEach { selector ->
             try {
                 doc.select(selector).remove()
-            } catch (_: Exception) { /* invalid selector on older Jsoup, skip */ }
+            } catch (_: Exception) { }
         }
 
         // Tier 3 — remove by text content
@@ -67,6 +61,36 @@ object ArticleExtractor {
             if (junkPhrases.any { text.startsWith(it) }) {
                 el.remove()
             }
+        }
+
+        // Tier 2b — fix lazy-loaded images (data-src → src)
+        doc.select("img[data-src], img[data-lazy-src], img[data-original]").forEach { img ->
+            val lazySrc = img.attr("data-src").ifEmpty {
+                img.attr("data-lazy-src").ifEmpty {
+                    img.attr("data-original")
+                }
+            }
+            if (lazySrc.startsWith("http")) {
+                img.attr("src", lazySrc)
+            }
+        }
+
+        // Remove imgs with no valid src
+        doc.select("img").forEach { img ->
+            val src = img.attr("src")
+            if (src.isEmpty() || src.startsWith("data:image/gif") ||
+                src.contains("placeholder") || src.contains("blank")) {
+                img.remove()
+            }
+        }
+
+        // Tier 2c — strip padding-bottom percentage from image containers
+        doc.select("div[style*='padding-bottom']").forEach { el ->
+            val style = el.attr("style")
+            el.attr(
+                "style",
+                style.replace(Regex("padding-bottom\\s*:[^;]+;?"), "").trim()
+            )
         }
 
         return doc.outerHtml()

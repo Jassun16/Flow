@@ -172,8 +172,14 @@ class RssParser @Inject constructor() {
                             currentTag = ""
 
                             if (title.isNotEmpty() && link.isNotEmpty()) {
-                                val cleanExcerpt = cleanText(description).take(250)
-                                val wordCount    = cleanExcerpt.split(" ").size
+                                val cleanDescription = cleanText(description)          // full clean text, NOT truncated
+                                val cleanExcerpt     = cleanDescription.take(250)      // excerpt still capped at 250 chars
+                                val wordCount        = cleanDescription
+                                    .trim()
+                                    .split(Regex("\\s+"))                              // handles all whitespace, not just spaces
+                                    .filter { it.isNotEmpty() }
+                                    .size
+
 
                                 articles.add(
                                     Article(

@@ -24,6 +24,10 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE id = :articleId")
     suspend fun getArticleById(articleId: Long): Article?
 
+    @Query("UPDATE articles SET readingTimeMinutes = :minutes WHERE id = :articleId")
+    suspend fun updateReadingTime(articleId: Long, minutes: Int)
+
+
     // ── Insert / Update ────────────────────────────────────────────────────
 
     // IGNORE = skip if article with same URL already exists (no duplicates on refresh)

@@ -2,7 +2,6 @@ package com.jassun16.flow.viewmodel
 
 import android.content.Context
 import android.content.Intent
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -22,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.dankito.readability4j.Readability4J
 import javax.inject.Inject
+import com.jassun16.flow.data.network.ReadingTimeCalculator
+
 
 data class ReaderUiState(
     val article: ArticleUiItem? = null,
@@ -32,7 +33,6 @@ data class ReaderUiState(
     val isBookmarked: Boolean = false,
     val summary: String? = null,
     val isSummarizing: Boolean = false,
-    val isListening: Boolean = false,
     val snackbarMessage: String? = null
 )
 
@@ -47,7 +47,6 @@ class ReaderViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ReaderUiState())
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
 
-    private var tts: TextToSpeech? = null
     private var rawArticle: Article? = null
 
     init {
@@ -88,16 +87,26 @@ class ReaderViewModel @Inject constructor(
                     rawHtml
                 }
 
-                // ── Tier 2+3 → then ContentCleaner ────────────────────
                 val tier23      = ArticleExtractor.cleanHtml(finalHtml, article.url)
                 val cleanedHtml = ContentCleaner.clean(tier23)
-                // ──────────────────────────────────────────────────────
+
+                // ── TEMP DEBUG — remove after diagnosis ──
+               // android.util.Log.d("FlowImageDebug", cleanedHtml.take(8000))
+                // ─────────────────────────────────────────
+
+                // ── ADD THIS: recalculate reading time from actual clean content ──
+                val plainText       = cleanedHtml.replace(Regex("<[^>]+>"), " ").trim()
+                val accurateMinutes = ReadingTimeCalculator.calculateFromText(plainText)
+                repository.updateReadingTime(articleId, accurateMinutes)
+                // ─────────────────────────────────────────────────────────────────
+
 
                 _uiState.update {
                     it.copy(
                         fullContent       = cleanedHtml,
                         isLoadingContent  = false,
-                        readabilityFailed = false
+                        readabilityFailed = false,
+                        article           = _uiState.value.article?.copy(readingTimeMinutes = accurateMinutes) // ← updates card instantly
                     )
                 }
                 repository.markAsRead(article.id, article.feedId)
@@ -106,16 +115,23 @@ class ReaderViewModel @Inject constructor(
             is Result.Error -> {
                 val fallback = fetchFullPageContent(article.url)
                 if (fallback != null) {
-                    // ── Tier 2+3 → then ContentCleaner ────────────────
-                    val tier23 = ArticleExtractor.cleanHtml(fallback, article.url)
+                    val tier23      = ArticleExtractor.cleanHtml(fallback, article.url)
+                    val cleanedHtml = ContentCleaner.clean(tier23)
+
+                    // ── ADD THIS: same recalculation for the fallback path ──
+                    val plainText       = cleanedHtml.replace(Regex("<[^>]+>"), " ").trim()
+                    val accurateMinutes = ReadingTimeCalculator.calculateFromText(plainText)
+                    repository.updateReadingTime(articleId, accurateMinutes)
+                    // ───────────────────────────────────────────────────────
+
                     _uiState.update {
                         it.copy(
-                            fullContent       = ContentCleaner.clean(tier23),
+                            fullContent       = cleanedHtml,
                             isLoadingContent  = false,
-                            readabilityFailed = false
+                            readabilityFailed = false,
+                            article           = _uiState.value.article?.copy(readingTimeMinutes = accurateMinutes) // ← updates card instantly
                         )
                     }
-                    // ──────────────────────────────────────────────────
                     repository.markAsRead(article.id, article.feedId)
                 } else {
                     _uiState.update {
@@ -130,6 +146,7 @@ class ReaderViewModel @Inject constructor(
             else -> _uiState.update { it.copy(isLoadingContent = false) }
         }
     }
+
 
     // ── Fetch full webpage and run Readability4J (Tier 1) ─────────────────
 
@@ -162,6 +179,7 @@ class ReaderViewModel @Inject constructor(
             }
         }
     }
+
 
     // ── Actions ───────────────────────────────────────────────────────────
 
@@ -223,37 +241,12 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    fun toggleListen(context: Context) {
-        if (_uiState.value.isListening) stopTts()
-        else startTts(context)
-    }
-
-    private fun startTts(context: Context) {
-        val content = _uiState.value.fullContent ?: return
-        val plainText = content.replace(Regex("<[^>]+>"), " ").trim()
-        tts = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.speak(plainText, TextToSpeech.QUEUE_FLUSH, null, "flow_tts")
-                _uiState.update { it.copy(isListening = true) }
-            }
-        }
-    }
-
-    private fun stopTts() {
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-        _uiState.update { it.copy(isListening = false) }
-    }
-
     fun clearSnackbar() {
         _uiState.update { it.copy(snackbarMessage = null) }
     }
 
     override fun onCleared() {
         super.onCleared()
-        tts?.stop()
-        tts?.shutdown()
     }
 
     private fun Article.toUiItem() = ArticleUiItem(
