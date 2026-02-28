@@ -45,12 +45,15 @@ fun HomeScreen(
     DisposableEffect(Unit) {
         activity?.window?.let { w ->
             WindowInsetsControllerCompat(w, w.decorView).apply {
-                show(WindowInsetsCompat.Type.statusBars())
+                show(WindowInsetsCompat.Type.navigationBars())
+                show(WindowInsetsCompat.Type.navigationBars())
                 systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             }
         }
         onDispose { }
     }
+
+
 
 
     // Filter articles by selected feed or show all

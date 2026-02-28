@@ -12,6 +12,11 @@ interface ArticleDao {
     @Query("SELECT * FROM articles ORDER BY publishedAt DESC")
     fun getAllArticles(): Flow<List<Article>>
 
+    // Fetches articles
+    @Query("SELECT * FROM articles WHERE fullContent IS NULL ORDER BY publishedAt DESC LIMIT :limit")
+    suspend fun getRecentArticlesWithoutContent(limit: Int): List<Article>
+
+
     // Articles for a specific feed only
     @Query("SELECT * FROM articles WHERE feedId = :feedId ORDER BY publishedAt DESC")
     fun getArticlesByFeed(feedId: Long): Flow<List<Article>>

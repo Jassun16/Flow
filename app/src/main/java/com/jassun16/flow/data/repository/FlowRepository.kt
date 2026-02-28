@@ -1,16 +1,20 @@
 package com.jassun16.flow.data.repository
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.jassun16.flow.data.db.AppDatabase
 import com.jassun16.flow.data.db.Article
 import com.jassun16.flow.data.db.Feed
 import com.jassun16.flow.data.network.ReadabilityFetcher
 import com.jassun16.flow.data.network.ReadingTimeCalculator
 import com.jassun16.flow.data.network.RssParser
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first          // ← THIS was missing before
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,7 +29,9 @@ sealed class Result<out T> {
 class FlowRepository @Inject constructor(
     private val database:           AppDatabase,
     private val rssParser:          RssParser,
-    private val readabilityFetcher: ReadabilityFetcher
+    private val readabilityFetcher: ReadabilityFetcher,
+    @ApplicationContext
+    private val context:            Context
 ) {
     private val feedDao    = database.feedDao()
     private val articleDao = database.articleDao()
@@ -41,8 +47,8 @@ class FlowRepository @Inject constructor(
                 if (!cleanUrl.startsWith("http")) {
                     return@withContext Result.Error("Please enter a valid URL starting with http")
                 }
-                val domain     = extractDomain(cleanUrl)
-                val faviconUrl = "https://www.google.com/s2/favicons?domain=$domain&sz=64"
+                val domain       = extractDomain(cleanUrl)
+                val faviconUrl   = "https://www.google.com/s2/favicons?domain=$domain&sz=64"
                 val testArticles = rssParser.parseFeed(0L, "", "", cleanUrl)
                 val feedTitle    = if (testArticles.isNotEmpty()) {
                     testArticles.first().feedTitle.ifEmpty { domain }
@@ -103,7 +109,7 @@ class FlowRepository @Inject constructor(
                 android.util.Log.d("FlowDebug", "Total articles fetched: ${allArticles.size}")
 
                 val insertedIds = articleDao.insertArticles(allArticles)
-                val newCount = insertedIds.count { it != -1L }
+                val newCount    = insertedIds.count { it != -1L }
 
                 feeds.forEach { feed ->
                     val count = articleDao.getUnreadCountForFeed(feed.id)
@@ -121,7 +127,6 @@ class FlowRepository @Inject constructor(
             }
         }
     }
-
 
     // ── Article Operations ─────────────────────────────────────────────────
 
@@ -165,6 +170,26 @@ class FlowRepository @Inject constructor(
         }
     }
 
+    suspend fun prefetchRecentArticles() {
+        if (!isOnWifi()) return
+        withContext(Dispatchers.IO) {
+            try {
+                val articles = articleDao.getRecentArticlesWithoutContent(20)
+                articles.forEach { article ->
+                    try {
+                        getFullContent(article)
+                    } catch (_: Exception) { }
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    private fun isOnWifi(): Boolean {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
+        val capabilities = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+    }
+
     suspend fun updateReadingTime(articleId: Long, minutes: Int) {
         articleDao.updateReadingTime(articleId, minutes)
     }
@@ -195,7 +220,6 @@ class FlowRepository @Inject constructor(
     suspend fun markAllAsReadGlobal() {
         withContext(Dispatchers.IO) {
             articleDao.markAllAsReadGlobal()
-            // ✅ FIXED: .first() called directly inside coroutine body
             val feeds = feedDao.getAllFeeds().first()
             feeds.forEach { feedDao.updateUnreadCount(it.id, 0) }
         }

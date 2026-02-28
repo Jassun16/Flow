@@ -22,9 +22,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
-import androidx.core.view.WindowInsetsControllerCompat
-import androidx.activity.ComponentActivity
-import androidx.core.view.WindowInsetsCompat
 
 
 @Composable
@@ -41,35 +38,6 @@ fun ReaderScreen(
     var lastSavedPosition by remember { mutableIntStateOf(0) }
     var loadedHtml        by remember { mutableStateOf("") }
 
-    val activity = LocalContext.current as? ComponentActivity
-    val window   = activity?.window
-
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        window?.let { w ->
-            WindowInsetsControllerCompat(w, w.decorView).apply {
-                hide(WindowInsetsCompat.Type.statusBars())
-                systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        }
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
-                window?.let { w ->
-                    WindowInsetsControllerCompat(w, w.decorView).apply {
-                        show(WindowInsetsCompat.Type.statusBars())
-                        systemBarsBehavior =
-                            WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.snackbarMessage) {
@@ -79,19 +47,21 @@ fun ReaderScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
         when {
 
             uiState.isLoadingContent -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().statusBarsPadding()
+                    .background(Color.Black),
+                    contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = Color(0xFF8E8E93))
                         Spacer(Modifier.height(16.dp))
                         Text(
                             "Loading article...",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF8E8E93)
                         )
                     }
                 }
@@ -100,7 +70,7 @@ fun ReaderScreen(
             // ── CHANGED: Tier 1 via WebView — runs Readability.js on page ──
             uiState.readabilityFailed -> {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().statusBarsPadding(),
                     factory  = { ctx ->
                         WebView(ctx).apply {
                             webViewClient              = WebViewClient()
@@ -141,7 +111,7 @@ fun ReaderScreen(
 
 
                 AndroidView(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().statusBarsPadding(),
                     factory  = { ctx ->
                         WebView(ctx).apply {
                             isVerticalScrollBarEnabled   = false
@@ -281,7 +251,7 @@ private fun buildReaderHtml(
     content:     String,
     isDarkMode:  Boolean
 ): String {
-    val bgColor    = if (isDarkMode) "#0D0D0D" else "#FFFFFF"
+    val bgColor    = if (isDarkMode) "#000000" else "#FFFFFF"
     val textColor  = if (isDarkMode) "#D1D1D6" else "#1C1C1E"
     val headColor  = if (isDarkMode) "#F2F2F7" else "#000000"
     val linkColor  = if (isDarkMode) "#64A0E4" else "#0066CC"

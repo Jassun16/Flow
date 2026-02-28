@@ -55,11 +55,15 @@ class HomeViewModel @Inject constructor(
                     val count = result.data
                     _uiState.update {
                         it.copy(
-                            isRefreshing     = false,
-                            snackbarMessage  = if (count > 0) "$count new articles fetched"
+                            isRefreshing = false,
+                            snackbarMessage = if (count > 0) "$count new articles fetched"
                             else "Already up to date",
                             shouldScrollToTop = count > 0   // only scroll if genuinely new articles arrived
                         )
+                    }
+                    // ── Silently pre-fetch content on WiFi ──
+                    viewModelScope.launch {
+                        repository.prefetchRecentArticles()
                     }
                 }
                 is Result.Error -> {

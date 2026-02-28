@@ -34,10 +34,12 @@ fun BookmarksScreen(
         activity?.window?.let { w ->
             WindowInsetsControllerCompat(w, w.decorView).apply {
                 show(WindowInsetsCompat.Type.statusBars())
+                show(WindowInsetsCompat.Type.navigationBars())
                 systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             }
         }
     }
+
 
 
     Scaffold(

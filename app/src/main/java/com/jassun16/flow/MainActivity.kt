@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()   // content draws behind status/nav bars
 
+
         setContent {
             FlowTheme {
                 // Single entry point — Navigation handles everything from here
