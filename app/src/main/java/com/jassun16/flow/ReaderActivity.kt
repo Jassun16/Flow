@@ -1,14 +1,14 @@
 package com.jassun16.flow
 
 import android.os.Bundle
-import android.view.WindowManager
+import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.jassun16.flow.ui.screens.ReaderScreen
 import com.jassun16.flow.ui.theme.FlowTheme
 import dagger.hilt.android.AndroidEntryPoint
-import android.view.Window
-
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 
 @AndroidEntryPoint
 class ReaderActivity : ComponentActivity() {
@@ -18,8 +18,13 @@ class ReaderActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)  // ← replaces supportActionBar?.hide()
-        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        enableEdgeToEdge(                                    // ← BEFORE super
+            statusBarStyle = SystemBarStyle.light(
+                scrim     = android.graphics.Color.BLACK,
+                darkScrim = android.graphics.Color.BLACK
+            )
+        )
         super.onCreate(savedInstanceState)
 
         val articleId = intent.getLongExtra(EXTRA_ARTICLE_ID, -1L)
@@ -27,12 +32,8 @@ class ReaderActivity : ComponentActivity() {
 
         setContent {
             FlowTheme {
-                ReaderScreen(
-                    articleId = articleId,
-                    onBack    = { finish() }
-                )
+                ReaderScreen(articleId = articleId, onBack = { finish() })
             }
         }
     }
-
 }

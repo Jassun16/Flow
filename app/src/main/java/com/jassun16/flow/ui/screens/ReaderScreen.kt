@@ -22,6 +22,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
+import android.app.Activity
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowInsetsControllerCompat
 
 
 @Composable
@@ -52,7 +56,7 @@ fun ReaderScreen(
         when {
 
             uiState.isLoadingContent -> {
-                Box(Modifier.fillMaxSize().statusBarsPadding()
+                Box(Modifier.fillMaxSize()
                     .background(Color.Black),
                     contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -178,8 +182,7 @@ fun ReaderScreen(
                     .background(
                         if (isDark) Color(0xE6000000)
                         else Color(0xE6FFFFFF)
-                    )
-                    .statusBarsPadding()
+                    ).statusBarsPadding()
             ) {
                 Row(
                     modifier          = Modifier

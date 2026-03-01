@@ -34,8 +34,7 @@
         <activity
             android:name=".ReaderActivity"
             android:exported="false"
-            android:theme="@style/Theme.Flow" />
-
+            android:theme="@style/Theme.Flow.Reader" />
 
     </application>
 

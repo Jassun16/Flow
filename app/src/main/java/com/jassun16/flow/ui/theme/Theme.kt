@@ -41,38 +41,19 @@ private val FallbackLightColors = lightColorScheme(
 
 @Composable
 fun FlowTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),  // follows system setting
-    content:   @Composable () -> Unit
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    manageStatusBar: Boolean = true,
+    content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
 
-    // Dynamic Color — extracts palette from your wallpaper automatically
-    // This is the Material You magic on Pixel 8 Pro
     val colorScheme = when {
         darkTheme -> dynamicDarkColorScheme(context).copy(
-            // Override background to pure black regardless of wallpaper color
-            // This ensures true OLED black in dark mode — saves battery + looks great
             background     = Color(0xFF000000),
             surface        = Color(0xFF000000),
             surfaceVariant = Color(0xFF1C1C1E)
         )
         else -> dynamicLightColorScheme(context)
-    }
-
-    // Make status bar and navigation bar match our theme
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            // Transparent bars — content draws behind them (edge-to-edge)
-            window.statusBarColor  = Color.Transparent.toArgb()
-            window.navigationBarColor = Color.Transparent.toArgb()
-            // Light/dark icons on status bar based on theme
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars     = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
-            }
-        }
     }
 
     MaterialTheme(
