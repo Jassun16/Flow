@@ -1,5 +1,6 @@
 package com.jassun16.flow
 
+import android.app.ActivityOptions
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -17,7 +18,6 @@ object Routes {
     const val HOME      = "home"
     const val FEEDS     = "feeds"
     const val BOOKMARKS = "bookmarks"
-    // READER route removed entirely
 }
 
 @Composable
@@ -26,8 +26,8 @@ fun FlowNavigation() {
     val context       = LocalContext.current
 
     NavHost(
-        navController    = navController,
-        startDestination = Routes.HOME,
+        navController      = navController,
+        startDestination   = Routes.HOME,
         enterTransition    = { fadeIn(animationSpec  = tween(300)) },
         exitTransition     = { fadeOut(animationSpec = tween(300)) },
         popEnterTransition = { fadeIn(animationSpec  = tween(300)) },
@@ -40,9 +40,16 @@ fun FlowNavigation() {
                     val intent = Intent(context, ReaderActivity::class.java).apply {
                         putExtra(ReaderActivity.EXTRA_ARTICLE_ID, articleId)
                     }
-                    context.startActivity(intent)
+                    context.startActivity(
+                        intent,
+                        ActivityOptions.makeCustomAnimation(
+                            context,
+                            R.anim.reader_fade_in,  // 600ms — outlasts status bar hide
+                            0
+                        ).toBundle()
+                    )
                 },
-                onFeedsClick    = { navController.navigate(Routes.FEEDS) },
+                onFeedsClick     = { navController.navigate(Routes.FEEDS) },
                 onBookmarksClick = { navController.navigate(Routes.BOOKMARKS) }
             )
         }
@@ -58,7 +65,14 @@ fun FlowNavigation() {
                     val intent = Intent(context, ReaderActivity::class.java).apply {
                         putExtra(ReaderActivity.EXTRA_ARTICLE_ID, articleId)
                     }
-                    context.startActivity(intent)
+                    context.startActivity(
+                        intent,
+                        ActivityOptions.makeCustomAnimation(
+                            context,
+                            R.anim.reader_fade_in,  // 600ms — outlasts status bar hide
+                            0
+                        ).toBundle()
+                    )
                 }
             )
         }

@@ -33,8 +33,8 @@
 
         <activity
             android:name=".ReaderActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Flow.Reader" />
+            android:theme="@style/Theme.Flow.Reader"
+            android:exported="false" />
 
     </application>
 

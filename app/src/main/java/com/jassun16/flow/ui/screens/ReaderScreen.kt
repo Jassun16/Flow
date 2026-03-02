@@ -22,11 +22,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
-import android.app.Activity
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowInsetsControllerCompat
-
 
 @Composable
 fun ReaderScreen(
@@ -42,7 +37,6 @@ fun ReaderScreen(
     var lastSavedPosition by remember { mutableIntStateOf(0) }
     var loadedHtml        by remember { mutableStateOf("") }
 
-
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let {
@@ -51,14 +45,18 @@ fun ReaderScreen(
         }
     }
 
+    // Root Box — NO statusBarsPadding — black fills behind status bar zone
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
 
         when {
 
             uiState.isLoadingContent -> {
-                Box(Modifier.fillMaxSize()
-                    .background(Color.Black),
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color(0xFF8E8E93))
                         Spacer(Modifier.height(16.dp))
@@ -71,10 +69,9 @@ fun ReaderScreen(
                 }
             }
 
-            // ── CHANGED: Tier 1 via WebView — runs Readability.js on page ──
             uiState.readabilityFailed -> {
                 AndroidView(
-                    modifier = Modifier.fillMaxSize().statusBarsPadding(),
+                    modifier = Modifier.fillMaxSize(),
                     factory  = { ctx ->
                         WebView(ctx).apply {
                             webViewClient              = WebViewClient()
@@ -84,8 +81,6 @@ fun ReaderScreen(
                     }
                 )
             }
-
-            // ── END CHANGE ──────────────────────────────────────────────────
 
             uiState.fullContent != null -> {
                 val article = uiState.article
@@ -113,9 +108,8 @@ fun ReaderScreen(
                     )
                 }
 
-
                 AndroidView(
-                    modifier = Modifier.fillMaxSize().statusBarsPadding(),
+                    modifier = Modifier.fillMaxSize(),
                     factory  = { ctx ->
                         WebView(ctx).apply {
                             isVerticalScrollBarEnabled   = false
@@ -169,7 +163,7 @@ fun ReaderScreen(
             }
         }
 
-        // ── Floating Top Bar ──────────────────────────────────────────────
+        // ── Floating Top Bar ─────────────────────────────────────────────
         AnimatedVisibility(
             visible  = showBars,
             modifier = Modifier.align(Alignment.TopCenter),
@@ -182,7 +176,8 @@ fun ReaderScreen(
                     .background(
                         if (isDark) Color(0xE6000000)
                         else Color(0xE6FFFFFF)
-                    ).statusBarsPadding()
+                    )
+                    .padding(top = 8.dp)
             ) {
                 Row(
                     modifier          = Modifier
@@ -288,7 +283,6 @@ private fun buildReaderHtml(
             height: auto !important;
             position: static !important;
         }
-
             *, *::before, *::after {
                 box-sizing: border-box;
                 -webkit-tap-highlight-color: transparent;
