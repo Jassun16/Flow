@@ -33,7 +33,8 @@ fun HomeScreen(
     onFeedsClick: () -> Unit,          // navigates to FeedsScreen
     onBookmarksClick: () -> Unit       // navigates to BookmarksScreen
 ) {
-    val viewModel: HomeViewModel = hiltViewModel()
+    val activity = LocalContext.current as ComponentActivity
+    val viewModel: HomeViewModel = hiltViewModel(activity)
     val uiState by viewModel.uiState.collectAsState()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -41,7 +42,6 @@ fun HomeScreen(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val listState = rememberLazyListState()
 
-    val activity = LocalContext.current as? ComponentActivity
     DisposableEffect(Unit) {
         activity?.window?.let { w ->
             WindowInsetsControllerCompat(w, w.decorView).apply {
@@ -144,50 +144,56 @@ fun HomeScreen(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
         ) { paddingValues ->
 
-            if (displayedArticles.isEmpty()) {
-                // Empty state
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text      = "No articles yet",
-                            style     = MaterialTheme.typography.headlineSmall,
-                            color     = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text      = "Pull down to refresh\nor add feeds from the menu",
-                            style     = MaterialTheme.typography.bodyMedium,
-                            color     = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { viewModel.refresh() }) {
-                            Text("Refresh Now")
+            when {
+                uiState.isInitialLoad -> {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues))
+                }
+
+                displayedArticles.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text  = "No articles yet",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text      = "Pull down to refresh\nor add feeds from the menu",
+                                style     = MaterialTheme.typography.bodyMedium,
+                                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(onClick = { viewModel.refresh() }) {
+                                Text("Refresh Now")
+                            }
                         }
                     }
                 }
-            } else {
-                // Article list — LazyColumn only renders visible items
-                LazyColumn(
-                    state             = listState,
-                    modifier          = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding    = PaddingValues(vertical = 4.dp)
-                ) {
-                    items(
-                        items = displayedArticles,
-                        key   = { it.id }   // stable keys = smoother animations
-                    ) { article ->
-                        ArticleCard(
-                            article = article,
-                            onClick = { onArticleClick(article.id) }
-                        )
+
+                else -> {
+                    LazyColumn(
+                        state          = listState,
+                        modifier       = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(
+                            items = displayedArticles,
+                            key   = { it.id }
+                        ) { article ->
+                            ArticleCard(
+                                article = article,
+                                onClick = { onArticleClick(article.id) }
+                            )
+                        }
                     }
                 }
             }

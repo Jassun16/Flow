@@ -74,6 +74,8 @@ class FlowRepository @Inject constructor(
         withContext(Dispatchers.IO) { feedDao.deleteFeed(feed) }
     }
 
+    suspend fun getArticleCount(): Int = articleDao.getCount()
+
     // ── Refresh ────────────────────────────────────────────────────────────
 
     suspend fun refreshAllFeeds(): Result<Int> {

@@ -12,6 +12,11 @@ interface ArticleDao {
     @Query("SELECT * FROM articles ORDER BY publishedAt DESC")
     fun getAllArticles(): Flow<List<Article>>
 
+    // Lightweight query to resolve database load times in the drawer
+    @Query("SELECT COUNT(*) FROM articles")
+    suspend fun getCount(): Int
+
+
     // Fetches articles
     @Query("SELECT * FROM articles WHERE fullContent IS NULL ORDER BY publishedAt DESC LIMIT :limit")
     suspend fun getRecentArticlesWithoutContent(limit: Int): List<Article>

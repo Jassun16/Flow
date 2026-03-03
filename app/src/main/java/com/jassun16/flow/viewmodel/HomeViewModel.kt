@@ -19,7 +19,8 @@ data class HomeUiState(
     val articles: List<ArticleUiItem> = emptyList(),
     val isRefreshing: Boolean = false,
     val snackbarMessage: String? = null,
-    val shouldScrollToTop: Boolean = false
+    val shouldScrollToTop: Boolean = false,
+    val isInitialLoad: Boolean = true
 )
 
 @HiltViewModel
@@ -29,6 +30,7 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var pendingScrollToTop = false
 
     init {
         // Collect feeds — auto-updates drawer badges whenever DB changes
@@ -40,7 +42,12 @@ class HomeViewModel @Inject constructor(
         // Collect articles — auto-updates list whenever DB changes
         viewModelScope.launch {
             repository.getAllArticles().collect { articles ->
-                _uiState.update { it.copy(articles = articles.map { a -> a.toUiItem() }) }
+                val scroll = pendingScrollToTop
+                pendingScrollToTop = false
+                _uiState.update { it.copy(articles = articles.map { a -> a.toUiItem() },
+                    shouldScrollToTop = scroll,
+                    isInitialLoad = false)
+                }
             }
         }
     }
@@ -53,12 +60,13 @@ class HomeViewModel @Inject constructor(
             when (val result = repository.refreshAllFeeds()) {
                 is Result.Success -> {
                     val count = result.data
+                    pendingScrollToTop = true
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
                             snackbarMessage = if (count > 0) "$count new articles fetched"
                             else "Already up to date",
-                            shouldScrollToTop = count > 0   // only scroll if genuinely new articles arrived
+                            //shouldScrollToTop = count > 0   // only scroll if genuinely new articles arrived
                         )
                     }
                     // ── Silently pre-fetch content on WiFi ──

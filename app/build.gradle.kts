@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.androidx.appcompat)
+
 
     // ── Jetpack Compose ───────────────────────────────────────
     // BOM = Bill of Materials: ensures ALL compose libraries
@@ -98,7 +100,7 @@ dependencies {
     implementation(libs.coroutines.android)
 
     // ── Gemini Nano (on-device AI) ────────────────────────────
-    implementation(libs.mlkit.genai.common)
-    implementation(libs.mlkit.genai.summarization)
+   // implementation(libs.mlkit.genai.common)
+   // implementation(libs.mlkit.genai.summarization)
 
 }
