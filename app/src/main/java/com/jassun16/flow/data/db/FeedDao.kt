@@ -13,6 +13,9 @@ interface FeedDao {
     @Query("SELECT * FROM feeds WHERE id = :feedId")
     suspend fun getFeedById(feedId: Long): Feed?
 
+    @Query("UPDATE feeds SET unreadCount = 0")
+    suspend fun clearAllUnreadCounts()
+
     // Insert returns the new row's ID — useful for pre-loading feeds
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertFeed(feed: Feed): Long

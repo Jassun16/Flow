@@ -12,8 +12,8 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities  = [Feed::class, Article::class],
-    version   = 2,
-    exportSchema = false   // set true later if you want schema version history files
+    version   = 3,                // ← bumped from 2 to 3
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -31,10 +31,32 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
-        @Volatile   // ensures all threads see the latest value immediately
+
+        // ── Migration 2 → 3: add performance indices ──────────────────
+        // These speed up the three most frequent queries:
+        //   getAllArticles()         — ORDER BY publishedAt DESC
+        //   getBookmarkedArticles()  — WHERE isBookmarked = 1
+        //   getUnreadCountForFeed()  — WHERE feedId = ? AND isRead = 0
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS " +
+                            "index_articles_publishedAt ON articles(publishedAt)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS " +
+                            "index_articles_isBookmarked ON articles(isBookmarked)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS " +
+                            "index_articles_feedId_isRead ON articles(feedId, isRead)"
+                )
+            }
+        }
+
+        @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // Pre-loaded RSS feeds for first launch
         private val STARTER_FEEDS = listOf(
             Triple("Android Police",  "https://www.androidpolice.com/feed/",   "https://www.androidpolice.com"),
             Triple("9to5Google",      "https://9to5google.com/feed/",           "https://9to5google.com"),
@@ -43,9 +65,7 @@ abstract class AppDatabase : RoomDatabase() {
         )
 
         fun getDatabase(context: Context): AppDatabase {
-            // If instance exists, return it immediately (fast path)
             return INSTANCE ?: synchronized(this) {
-                // Double-check inside lock (thread safety)
                 INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
             }
         }
@@ -56,12 +76,10 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "flow_database"
             )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)   // ← added MIGRATION_2_3
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        // Pre-populate starter feeds directly via SQL
-                        // Bypasses the INSTANCE null timing issue entirely
                         STARTER_FEEDS.forEach { (title, rssUrl, websiteUrl) ->
                             val faviconUrl = "https://www.google.com/s2/favicons?domain=$websiteUrl&sz=64"
                             db.execSQL("""
@@ -75,6 +93,5 @@ abstract class AppDatabase : RoomDatabase() {
                 .build()
                 .also { INSTANCE = it }
         }
-
     }
 }

@@ -6,8 +6,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import java.io.StringReader
-import java.text.SimpleDateFormat
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
+
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,10 +24,10 @@ class RssParser @Inject constructor() {
         .build()
 
     private val dateFormats = listOf(
-        SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z",   Locale.ENGLISH),
-        SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH),
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ",        Locale.ENGLISH),
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'",      Locale.ENGLISH)
+        DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z",   Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ",        Locale.ENGLISH),
+        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'",      Locale.ENGLISH)
     )
 
     suspend fun parseFeed(
@@ -35,10 +38,8 @@ class RssParser @Inject constructor() {
     ): List<Article> {
         return try {
             val xml = downloadFeed(rssUrl) ?: return emptyList()
-            android.util.Log.d("FlowDebug", "Downloaded XML length: ${xml.length} for $rssUrl")
             parseXml(xml, feedId, feedTitle, feedFaviconUrl)
         } catch (e: Exception) {
-            android.util.Log.e("FlowDebug", "parseFeed error: ${e.message}", e)
             emptyList()
         }
     }
@@ -50,10 +51,8 @@ class RssParser @Inject constructor() {
                 .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
                 .build()
             val response = client.newCall(request).execute()
-            android.util.Log.d("FlowDebug", "HTTP ${response.code} for $url")
             if (response.isSuccessful) response.body?.string() else null
         } catch (e: Exception) {
-            android.util.Log.e("FlowDebug", "downloadFeed error: ${e.message}")
             null
         }
     }
@@ -197,9 +196,7 @@ class RssParser @Inject constructor() {
                                     )
                                 )
                             } else {
-                                android.util.Log.d("FlowDebug",
-                                    "Skipped article — title:'$title' link:'$link'")
-                            }
+                                }
                         } else {
                             currentTag = ""
                         }
@@ -208,10 +205,8 @@ class RssParser @Inject constructor() {
                 eventType = parser.next()
             }
 
-            android.util.Log.d("FlowDebug", "Parsed ${articles.size} articles from XML")
 
         } catch (e: Exception) {
-            android.util.Log.e("FlowDebug", "parseXml error: ${e.message}", e)
         }
 
         return articles
@@ -234,8 +229,8 @@ class RssParser @Inject constructor() {
         if (dateStr.isEmpty()) return System.currentTimeMillis()
         dateFormats.forEach { format ->
             try {
-                return format.parse(dateStr)?.time ?: System.currentTimeMillis()
-            } catch (_: Exception) { }
+                return ZonedDateTime.parse(dateStr, format).toInstant().toEpochMilli()
+            } catch (_: DateTimeParseException) { }
         }
         return System.currentTimeMillis()
     }

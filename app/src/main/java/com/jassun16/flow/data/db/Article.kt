@@ -18,7 +18,10 @@ import androidx.room.PrimaryKey
     ],
     indices = [
         Index("feedId"),
-        Index(value = ["url"], unique = true)   // unique based on URL as there are duplicates
+        Index(value = ["url"], unique = true),   // unique based on URL as there are duplicates
+        Index(value = ["publishedAt"]),               // ← ADD: speeds up ORDER BY publishedAt DESC
+        Index(value = ["isBookmarked"]),              // ← ADD: speeds up bookmarks query
+        Index(value = ["feedId", "isRead"])           // ← ADD: speeds up unread count per feed
     ]
 )
 data class Article(

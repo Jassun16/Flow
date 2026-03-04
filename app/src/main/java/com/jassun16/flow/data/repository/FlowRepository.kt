@@ -82,33 +82,27 @@ class FlowRepository @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 val feeds = feedDao.getAllFeeds().first()
-                android.util.Log.d("FlowDebug", "feeds in DB: ${feeds.size}")
 
                 if (feeds.isEmpty()) {
-                    android.util.Log.d("FlowDebug", "NO FEEDS FOUND — seed data missing")
                     return@withContext Result.Success(0)
                 }
 
                 feeds.forEach { feed ->
-                    android.util.Log.d("FlowDebug", "Feed: ${feed.title} | URL: ${feed.rssUrl}")
-                }
+                    }
 
                 val deferredResults = feeds.map { feed ->
                     async {
-                        android.util.Log.d("FlowDebug", "Fetching: ${feed.rssUrl}")
                         val articles = rssParser.parseFeed(
                             feedId         = feed.id,
                             feedTitle      = feed.title,
                             feedFaviconUrl = feed.faviconUrl,
                             rssUrl         = feed.rssUrl
                         )
-                        android.util.Log.d("FlowDebug", "Got ${articles.size} articles from ${feed.title}")
                         articles
                     }
                 }
 
                 val allArticles = deferredResults.awaitAll().flatten()
-                android.util.Log.d("FlowDebug", "Total articles fetched: ${allArticles.size}")
 
                 val insertedIds = articleDao.insertArticles(allArticles)
                 val newCount    = insertedIds.count { it != -1L }
@@ -124,7 +118,6 @@ class FlowRepository @Inject constructor(
                 Result.Success(newCount)
 
             } catch (e: Exception) {
-                android.util.Log.e("FlowDebug", "Refresh error: ${e.message}", e)
                 Result.Error("Refresh failed: ${e.message}")
             }
         }
@@ -177,11 +170,11 @@ class FlowRepository @Inject constructor(
         withContext(Dispatchers.IO) {
             try {
                 val articles = articleDao.getRecentArticlesWithoutContent(20)
-                articles.forEach { article ->
-                    try {
-                        getFullContent(article)
-                    } catch (_: Exception) { }
-                }
+                articles.map { article ->
+                    async {
+                        try { getFullContent(article) } catch (_: Exception) { }
+                    }
+                }.awaitAll()
             } catch (_: Exception) { }
         }
     }
@@ -222,10 +215,10 @@ class FlowRepository @Inject constructor(
     suspend fun markAllAsReadGlobal() {
         withContext(Dispatchers.IO) {
             articleDao.markAllAsReadGlobal()
-            val feeds = feedDao.getAllFeeds().first()
-            feeds.forEach { feedDao.updateUnreadCount(it.id, 0) }
+            feedDao.clearAllUnreadCounts()   // single query instead of N queries
         }
     }
+
 
     // ── Bookmarks ──────────────────────────────────────────────────────────
 
