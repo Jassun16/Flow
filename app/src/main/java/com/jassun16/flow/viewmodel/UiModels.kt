@@ -1,5 +1,8 @@
 package com.jassun16.flow.viewmodel
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class FeedUiItem(
     val id: Long,
     val title: String,
@@ -7,6 +10,7 @@ data class FeedUiItem(
     val unreadCount: Int
 )
 
+@Immutable
 data class ArticleUiItem(
     val id: Long,
     val feedId: Long,

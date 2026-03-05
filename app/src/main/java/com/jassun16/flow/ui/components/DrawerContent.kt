@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jassun16.flow.viewmodel.FeedUiItem
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
 
 @Composable
 fun DrawerContent(
@@ -103,16 +105,17 @@ fun DrawerContent(
                 NavigationDrawerItem(
                     icon = {
                         AsyncImage(
-                            model = feed.faviconUrl,
+                            model              = feed.faviconUrl,
                             contentDescription = feed.title,
-                            modifier = Modifier
+                            modifier           = Modifier
                                 .size(20.dp)
                                 .clip(CircleShape)
                         )
                     },
-                    label = { Text(feed.title, maxLines = 1) },
+                    label = {
+                        Text(feed.title, maxLines = 1)
+                    },
                     badge = {
-                        // Only show badge if there are unread articles
                         if (feed.unreadCount > 0) {
                             Badge {
                                 Text(
@@ -127,6 +130,7 @@ fun DrawerContent(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }
+
 
             // ── Manage Feeds ───────────────────────────────────────────
             item {

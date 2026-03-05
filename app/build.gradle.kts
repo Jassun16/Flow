@@ -7,6 +7,29 @@ plugins {
 }
 
 android {
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+
+//    buildTypes {
+//        getByName("release") {
+//            isMinifyEnabled = false      // ← disables R8 shrinking
+//            isShrinkResources = false    // ← disables resource shrinking
+//            signingConfig = signingConfigs.getByName("debug")
+//        }
+//    }
+
+
     namespace   = "com.jassun16.flow"
     compileSdk  = 36
 
@@ -98,6 +121,10 @@ dependencies {
 
     // ── Coroutines ────────────────────────────────────────────
     implementation(libs.coroutines.android)
+
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.7")
+
+
 
     // ── Gemini Nano (on-device AI) ────────────────────────────
    // implementation(libs.mlkit.genai.common)

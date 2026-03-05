@@ -7,6 +7,9 @@ import com.jassun16.flow.data.db.Feed
 import com.jassun16.flow.data.repository.FlowRepository
 import com.jassun16.flow.data.repository.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,11 +18,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val feeds: List<FeedUiItem> = emptyList(),
-    val articles: List<ArticleUiItem> = emptyList(),
+    val feeds: ImmutableList<FeedUiItem> = persistentListOf(),
+    val articles: ImmutableList<ArticleUiItem> = persistentListOf(),
+    val filteredArticles: ImmutableList<ArticleUiItem> = persistentListOf(),
+    val selectedFeedId: Long? = null,
     val isRefreshing: Boolean = false,
     val snackbarMessage: String? = null,
-    val shouldScrollToTop: Boolean = false,
     val isInitialLoad: Boolean = true
 )
 
@@ -30,29 +34,38 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-    private var pendingScrollToTop = false
 
     init {
-        // Collect feeds — auto-updates drawer badges whenever DB changes
         viewModelScope.launch {
             repository.getAllFeeds().collect { feeds ->
-                _uiState.update { it.copy(feeds = feeds.map { f -> f.toUiItem() }) }
+                _uiState.update { it.copy(feeds = feeds.map { f -> f.toUiItem() }.toImmutableList()) }
             }
         }
-        // Collect articles — auto-updates list whenever DB changes
         viewModelScope.launch {
             repository.getAllArticles().collect { articles ->
+                val uiArticles = articles.map { a -> a.toUiItem() }.toImmutableList()
                 val scroll = pendingScrollToTop
                 pendingScrollToTop = false
-                _uiState.update { it.copy(articles = articles.map { a -> a.toUiItem() },
-                    shouldScrollToTop = scroll,
-                    isInitialLoad = false)
+                _uiState.update { it ->
+                    val filtered = if (it.selectedFeedId == null) uiArticles
+                    else uiArticles.filter { a -> a.feedId == it.selectedFeedId }.toImmutableList()
+                    it.copy(
+                        articles          = uiArticles,
+                        filteredArticles  = filtered,
+                        isInitialLoad     = false
+                    )
                 }
             }
         }
     }
 
-    // ── Actions ────────────────────────────────────────────────────────────
+    fun selectFeed(feedId: Long?) {
+        _uiState.update { it ->
+            val filtered = if (feedId == null) it.articles
+            else it.articles.filter { a -> a.feedId == feedId }.toImmutableList()
+            it.copy(selectedFeedId = feedId, filteredArticles = filtered)
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -63,16 +76,12 @@ class HomeViewModel @Inject constructor(
                     pendingScrollToTop = true
                     _uiState.update {
                         it.copy(
-                            isRefreshing = false,
+                            isRefreshing    = false,
                             snackbarMessage = if (count > 0) "$count new articles fetched"
-                            else "Already up to date",
-                            //shouldScrollToTop = count > 0   // only scroll if genuinely new articles arrived
+                            else "Already up to date"
                         )
                     }
-                    // ── Silently pre-fetch content on WiFi ──
-                    viewModelScope.launch {
-                        repository.prefetchRecentArticles()
-                    }
+                    viewModelScope.launch { repository.prefetchRecentArticles() }
                 }
                 is Result.Error -> {
                     _uiState.update {
@@ -84,22 +93,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun clearScrollToTop() {
-        _uiState.update { it.copy(shouldScrollToTop = false) }
-    }
-
-
-    fun clearSnackbar() {
-        _uiState.update { it.copy(snackbarMessage = null) }
-    }
-
-    fun markAllAsRead() {
-        viewModelScope.launch { repository.markAllAsReadGlobal() }
-    }
-
-    fun markFeedAsRead(feedId: Long) {
-        viewModelScope.launch { repository.markAllAsRead(feedId) }
-    }
+    fun clearSnackbar()    { _uiState.update { it.copy(snackbarMessage = null) } }
+    fun markAllAsRead()    { viewModelScope.launch { repository.markAllAsReadGlobal() } }
+    fun markFeedAsRead(feedId: Long) { viewModelScope.launch { repository.markAllAsRead(feedId) } }
 
     fun deleteFeed(feedItem: FeedUiItem) {
         viewModelScope.launch {
@@ -123,8 +119,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
-    // ── Converters ─────────────────────────────────────────────────────────
 
     private fun Feed.toUiItem() = FeedUiItem(
         id          = id,
