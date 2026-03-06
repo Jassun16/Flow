@@ -17,6 +17,10 @@ interface ArticleDao {
     suspend fun getCount(): Int
 
 
+    @Query("UPDATE articles SET thumbnailUrl = :thumbnailUrl WHERE url = :articleUrl AND thumbnailUrl IS NULL")
+    suspend fun updateThumbnailIfNull(articleUrl: String, thumbnailUrl: String)
+
+
     // Fetches articles
     @Query("SELECT * FROM articles WHERE fullContent IS NULL ORDER BY publishedAt DESC LIMIT :limit")
     suspend fun getRecentArticlesWithoutContent(limit: Int): List<Article>

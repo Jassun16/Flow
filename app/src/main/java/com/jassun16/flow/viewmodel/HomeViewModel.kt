@@ -24,7 +24,6 @@ data class HomeUiState(
     val selectedFeedId: Long? = null,
     val isRefreshing: Boolean = false,
     val snackbarMessage: String? = null,
-    val isInitialLoad: Boolean = true
 )
 
 @HiltViewModel
@@ -35,6 +34,10 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val _isAppReady = MutableStateFlow(false)
+    val isAppReady: StateFlow<Boolean> = _isAppReady.asStateFlow()
+
+
     init {
         viewModelScope.launch {
             repository.getAllFeeds().collect { feeds ->
@@ -44,17 +47,15 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getAllArticles().collect { articles ->
                 val uiArticles = articles.map { a -> a.toUiItem() }.toImmutableList()
-                val scroll = pendingScrollToTop
-                pendingScrollToTop = false
                 _uiState.update { it ->
                     val filtered = if (it.selectedFeedId == null) uiArticles
                     else uiArticles.filter { a -> a.feedId == it.selectedFeedId }.toImmutableList()
                     it.copy(
-                        articles          = uiArticles,
-                        filteredArticles  = filtered,
-                        isInitialLoad     = false
+                        articles         = uiArticles,
+                        filteredArticles = filtered,
                     )
                 }
+                _isAppReady.value = true
             }
         }
     }
@@ -73,7 +74,6 @@ class HomeViewModel @Inject constructor(
             when (val result = repository.refreshAllFeeds()) {
                 is Result.Success -> {
                     val count = result.data
-                    pendingScrollToTop = true
                     _uiState.update {
                         it.copy(
                             isRefreshing    = false,

@@ -87,25 +87,29 @@ class FlowRepository @Inject constructor(
                     return@withContext Result.Success(0)
                 }
 
-                feeds.forEach { feed ->
-                    }
-
                 val deferredResults = feeds.map { feed ->
                     async {
-                        val articles = rssParser.parseFeed(
+                        rssParser.parseFeed(
                             feedId         = feed.id,
                             feedTitle      = feed.title,
                             feedFaviconUrl = feed.faviconUrl,
                             rssUrl         = feed.rssUrl
                         )
-                        articles
                     }
                 }
 
                 val allArticles = deferredResults.awaitAll().flatten()
 
+                // Insert new articles (IGNORE skips duplicates — preserves read/bookmark state)
                 val insertedIds = articleDao.insertArticles(allArticles)
                 val newCount    = insertedIds.count { it != -1L }
+
+                // Patch thumbnails for any existing article that was stored with null
+                allArticles.forEach { article ->
+                    if (article.thumbnailUrl != null) {
+                        articleDao.updateThumbnailIfNull(article.url, article.thumbnailUrl)
+                    }
+                }
 
                 feeds.forEach { feed ->
                     val count = articleDao.getUnreadCountForFeed(feed.id)
@@ -215,10 +219,9 @@ class FlowRepository @Inject constructor(
     suspend fun markAllAsReadGlobal() {
         withContext(Dispatchers.IO) {
             articleDao.markAllAsReadGlobal()
-            feedDao.clearAllUnreadCounts()   // single query instead of N queries
+            feedDao.clearAllUnreadCounts()
         }
     }
-
 
     // ── Bookmarks ──────────────────────────────────────────────────────────
 

@@ -4,7 +4,6 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
@@ -59,17 +58,17 @@ fun HomeScreen(
         drawerState   = drawerState,
         drawerContent = {
             DrawerContent(
-                feeds               = uiState.feeds,
-                selectedFeedId      = uiState.selectedFeedId,
-                onAllArticlesClick  = {
+                feeds                = uiState.feeds,
+                selectedFeedId       = uiState.selectedFeedId,
+                onAllArticlesClick   = {
                     viewModel.selectFeed(null)
                     scope.launch { drawerState.close() }
                 },
-                onFeedClick         = { feed ->
+                onFeedClick          = { feed ->
                     viewModel.selectFeed(feed.id)
                     scope.launch { drawerState.close() }
                 },
-                onBookmarksClick    = {
+                onBookmarksClick     = {
                     scope.launch { drawerState.close() }
                     onBookmarksClick()
                 },
@@ -77,7 +76,7 @@ fun HomeScreen(
                     scope.launch { drawerState.close() }
                     onFeedsClick()
                 },
-                onMarkAllReadClick  = { viewModel.markAllAsRead() }
+                onMarkAllReadClick   = { viewModel.markAllAsRead() }
             )
         }
     ) {
@@ -116,7 +115,6 @@ fun HomeScreen(
                     )
                 )
             }
-            // ← no nestedScroll modifier, no scrollBehavior
         ) { paddingValues ->
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
@@ -126,10 +124,6 @@ fun HomeScreen(
                     .padding(paddingValues)
             ) {
                 when {
-                    uiState.isInitialLoad -> {
-                        Box(modifier = Modifier.fillMaxSize())
-                    }
-
                     uiState.filteredArticles.isEmpty() -> {
                         Box(
                             modifier         = Modifier.fillMaxSize(),
@@ -157,6 +151,10 @@ fun HomeScreen(
                     }
 
                     else -> {
+                        LazyColumn(
+                            modifier       = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 4.dp)
+                        ) {
                             items(
                                 items       = uiState.filteredArticles,
                                 key         = { it.id },

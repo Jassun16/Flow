@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         splashScreen.setKeepOnScreenCondition {
-            homeViewModel.uiState.value.isInitialLoad
+            !homeViewModel.isAppReady.value
         }
 
         setContent {

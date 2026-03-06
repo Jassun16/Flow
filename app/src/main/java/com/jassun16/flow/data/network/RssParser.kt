@@ -1,5 +1,6 @@
 package com.jassun16.flow.data.network
 
+import android.util.Log
 import android.util.Xml
 import com.jassun16.flow.data.db.Article
 import okhttp3.OkHttpClient
@@ -10,7 +11,6 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
-
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,22 +40,45 @@ class RssParser @Inject constructor() {
             val xml = downloadFeed(rssUrl) ?: return emptyList()
             parseXml(xml, feedId, feedTitle, feedFaviconUrl)
         } catch (e: Exception) {
+            Log.e("RssParser", "parseFeed error for $feedTitle: ${e.message}", e)
             emptyList()
         }
     }
 
     private fun downloadFeed(url: String): String? {
         return try {
-            val request  = Request.Builder()
+            val request = Request.Builder()
                 .url(url)
                 .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
                 .build()
             val response = client.newCall(request).execute()
-            if (response.isSuccessful) response.body?.string() else null
+            if (response.isSuccessful) response.body?.string()
+            else {
+                Log.e("RssParser", "Download failed for $url: HTTP ${response.code}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("RssParser", "Download exception for $url: ${e.message}")
+            null
+        }
+    }
+
+    private fun fetchOgImage(articleUrl: String): String? {
+        return try {
+            val request  = Request.Builder()
+                .url(articleUrl)
+                .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
+                .build()
+            val html     = client.newCall(request).execute().body?.string() ?: return null
+            val ogRegex  = Regex("""<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+            val ogRegex2 = Regex("""<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']""", RegexOption.IGNORE_CASE)
+            (ogRegex.find(html) ?: ogRegex2.find(html))?.groupValues?.get(1)
+                ?.takeIf { it.startsWith("http") }
         } catch (e: Exception) {
             null
         }
     }
+
 
     private fun parseXml(
         xml: String,
@@ -63,6 +86,7 @@ class RssParser @Inject constructor() {
         feedTitle: String,
         feedFaviconUrl: String
     ): List<Article> {
+        Log.d("RssParser", "Parsing feed: $feedTitle | xml length: ${xml.length}")
         val articles = mutableListOf<Article>()
 
         try {
@@ -70,14 +94,14 @@ class RssParser @Inject constructor() {
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
             parser.setInput(StringReader(xml))
 
-            // ── Mutable state per article ──────────────────────────────
-            var currentTag   = ""
-            var inItem       = false
-            var title        = ""
-            var link         = ""
-            var description  = ""
-            var pubDate      = ""
-            var author       = ""
+            var currentTag     = ""
+            var inItem         = false
+            var title          = ""
+            var link           = ""
+            var description    = ""
+            var contentEncoded = ""
+            var pubDate        = ""
+            var author         = ""
             var thumbnail: String? = null
 
             var eventType = parser.eventType
@@ -86,23 +110,21 @@ class RssParser @Inject constructor() {
                 when (eventType) {
 
                     XmlPullParser.START_TAG -> {
-                        // Strip namespace prefix e.g. "media:thumbnail" → "media:thumbnail"
                         val tag = parser.name ?: ""
                         currentTag = tag.lowercase()
 
                         when (currentTag) {
                             "item", "entry" -> {
-                                // Start of a new article — reset everything
-                                inItem      = true
-                                title       = ""
-                                link        = ""
-                                description = ""
-                                pubDate     = ""
-                                author      = ""
-                                thumbnail   = null
+                                inItem         = true
+                                title          = ""
+                                link           = ""
+                                description    = ""
+                                contentEncoded = ""
+                                pubDate        = ""
+                                author         = ""
+                                thumbnail      = null
                             }
                             "link" -> {
-                                // Atom feeds: <link href="url"/> (attribute, not text)
                                 val href = parser.getAttributeValue(null, "href")
                                 if (inItem && href != null && link.isEmpty()) {
                                     link = href
@@ -118,48 +140,37 @@ class RssParser @Inject constructor() {
                     }
 
                     XmlPullParser.TEXT -> {
-                        if (!inItem) {
-                            eventType = parser.next()
-                            continue
-                        }
+                        if (!inItem) { eventType = parser.next(); continue }
                         val text = parser.text?.trim() ?: ""
-                        if (text.isEmpty()) {
-                            eventType = parser.next()
-                            continue
-                        }
+                        if (text.isEmpty()) { eventType = parser.next(); continue }
 
-                        // currentTag tells us which field this text belongs to
                         when (currentTag) {
-                            "title"            -> if (title.isEmpty())       title       = text
-                            "link"             -> if (link.isEmpty())        link        = text
+                            "title"           -> if (title.isEmpty())          title          = text
+                            "link"            -> if (link.isEmpty())           link           = text
                             "description",
                             "summary",
-                            "content",
-                            "content:encoded"  -> if (description.isEmpty()) description = text
+                            "content"         -> if (description.isEmpty())    description    = text
+                            "content:encoded" -> if (contentEncoded.isEmpty()) contentEncoded = text
                             "pubdate",
                             "published",
                             "updated",
-                            "dc:date"          -> if (pubDate.isEmpty())     pubDate     = text
+                            "dc:date"         -> if (pubDate.isEmpty())        pubDate        = text
                             "author",
                             "dc:creator",
-                            "name"             -> if (author.isEmpty())      author      = text
+                            "name"            -> if (author.isEmpty())         author         = text
                         }
                     }
 
                     XmlPullParser.CDSECT -> {
-                        // CDATA sections — some feeds wrap content in <![CDATA[...]]>
-                        if (!inItem) {
-                            eventType = parser.next()
-                            continue
-                        }
+                        if (!inItem) { eventType = parser.next(); continue }
                         val text = parser.text?.trim() ?: ""
                         when (currentTag) {
-                            "title"            -> if (title.isEmpty())       title       = text
+                            "title"           -> if (title.isEmpty())          title          = text
                             "description",
-                            "summary",
-                            "content:encoded"  -> if (description.isEmpty()) description = text
+                            "summary"         -> if (description.isEmpty())    description    = text
+                            "content:encoded" -> if (contentEncoded.isEmpty()) contentEncoded = text
                             "author",
-                            "dc:creator"       -> if (author.isEmpty())      author      = text
+                            "dc:creator"      -> if (author.isEmpty())         author         = text
                         }
                     }
 
@@ -171,14 +182,24 @@ class RssParser @Inject constructor() {
                             currentTag = ""
 
                             if (title.isNotEmpty() && link.isNotEmpty()) {
-                                val cleanDescription = cleanText(description)          // full clean text, NOT truncated
-                                val cleanExcerpt     = cleanDescription.take(250)      // excerpt still capped at 250 chars
+
+                                // ── Debug logs ────────────────────────────────────────
+                                Log.d("RssParser", "=== ARTICLE ===")
+                                Log.d("RssParser", "Title: $title")
+                                Log.d("RssParser", "Thumbnail (tag): $thumbnail")
+                                Log.d("RssParser", "ContentEncoded (300): ${contentEncoded.take(300)}")
+                                Log.d("RssParser", "Description (300): ${description.take(300)}")
+                                Log.d("RssParser", "Extracted from contentEncoded: ${extractImageFromHtml(contentEncoded)}")
+                                Log.d("RssParser", "Extracted from description: ${extractImageFromHtml(description)}")
+                                // ──────────────────────────────────────────────────────
+
+                                val cleanDescription = cleanText(description)
+                                val cleanExcerpt     = cleanDescription.take(250)
                                 val wordCount        = cleanDescription
                                     .trim()
-                                    .split(Regex("\\s+"))                              // handles all whitespace, not just spaces
+                                    .split(Regex("\\s+"))
                                     .filter { it.isNotEmpty() }
                                     .size
-
 
                                 articles.add(
                                     Article(
@@ -187,7 +208,10 @@ class RssParser @Inject constructor() {
                                         feedFaviconUrl     = feedFaviconUrl,
                                         title              = cleanText(title),
                                         url                = link.trim(),
-                                        thumbnailUrl       = thumbnail ?: extractImageFromHtml(description),
+                                        thumbnailUrl       = thumbnail
+                                            ?: extractImageFromHtml(contentEncoded)
+                                            ?: extractImageFromHtml(description)
+                                            ?: fetchOgImage(link.trim()),
                                         excerpt            = cleanExcerpt,
                                         fullContent        = null,
                                         author             = author.takeIf { it.isNotEmpty() },
@@ -195,8 +219,7 @@ class RssParser @Inject constructor() {
                                         readingTimeMinutes = ReadingTimeCalculator.calculate(wordCount)
                                     )
                                 )
-                            } else {
-                                }
+                            }
                         } else {
                             currentTag = ""
                         }
@@ -205,10 +228,11 @@ class RssParser @Inject constructor() {
                 eventType = parser.next()
             }
 
-
         } catch (e: Exception) {
+            Log.e("RssParser", "Parse exception in $feedTitle: ${e.message}", e)
         }
 
+        Log.d("RssParser", "Done parsing $feedTitle — ${articles.size} articles")
         return articles
     }
 
@@ -240,4 +264,6 @@ private fun extractImageFromHtml(html: String): String? {
     val imgRegex = Regex("""<img[^>]+src\s*=\s*["']([^"']{10,})["']""", RegexOption.IGNORE_CASE)
     return imgRegex.find(html)?.groupValues?.get(1)
         ?.takeIf { it.startsWith("http") }
+        ?.replace("&#038;", "&")
+        ?.replace("&amp;",  "&")
 }
