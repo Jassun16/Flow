@@ -258,6 +258,72 @@ class RssParser @Inject constructor() {
         }
         return System.currentTimeMillis()
     }
+    /**
+     * Given any URL (domain, website, or direct RSS link), returns the actual RSS/Atom feed URL.
+     * 1. Prepares the URL, fetches it
+     * 2. If response is already XML → return as-is
+     * 3. If HTML → parse <link rel="alternate"> to find the feed href
+     * 4. Resolves relative hrefs against the base URL
+     */
+    fun discoverFeedUrl(url: String): String? {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
+                .build()
+            val response    = client.newCall(request).execute()
+            val contentType = response.header("Content-Type") ?: ""
+            val body        = response.body?.string() ?: return null
+            val trimmed     = body.trimStart()
+
+            // Already a feed — XML/RSS/Atom content type or body starts with XML tags
+            if (contentType.contains("xml") || contentType.contains("rss") ||
+                contentType.contains("atom") || trimmed.startsWith("<?xml") ||
+                trimmed.startsWith("<rss") || trimmed.startsWith("<feed")
+            ) {
+                Log.d("RssParser", "discoverFeedUrl: already a feed → $url")
+                return url
+            }
+
+            // HTML page — look for <link type="application/rss+xml" href="...">
+            // Handles both attribute orderings
+            val typeFirst = Regex(
+                """<link[^>]+type=["'](application/rss\+xml|application/atom\+xml)["'][^>]+href=["']([^"']+)["']""",
+                RegexOption.IGNORE_CASE
+            )
+            val hrefFirst = Regex(
+                """<link[^>]+href=["']([^"']+)["'][^>]+type=["'](application/rss\+xml|application/atom\+xml)["']""",
+                RegexOption.IGNORE_CASE
+            )
+
+            val discoveredHref = typeFirst.find(body)?.groupValues?.get(2)
+                ?: hrefFirst.find(body)?.groupValues?.get(1)
+
+            if (discoveredHref == null) {
+                Log.e("RssParser", "discoverFeedUrl: no feed link found in HTML at $url")
+                return null
+            }
+
+            // Resolve relative URLs against the base
+            val resolved = when {
+                discoveredHref.startsWith("http") -> discoveredHref
+                discoveredHref.startsWith("//")   -> "https:$discoveredHref"
+                discoveredHref.startsWith("/")    -> {
+                    val proto  = url.substringBefore("://")
+                    val domain = url.substringAfter("://").substringBefore("/")
+                    "$proto://$domain$discoveredHref"
+                }
+                else -> "${url.trimEnd('/')}/$discoveredHref"
+            }
+
+            Log.d("RssParser", "discoverFeedUrl: discovered → $resolved")
+            resolved
+
+        } catch (e: Exception) {
+            Log.e("RssParser", "discoverFeedUrl error for $url: ${e.message}")
+            null
+        }
+    }
 }
 
 private fun extractImageFromHtml(html: String): String? {

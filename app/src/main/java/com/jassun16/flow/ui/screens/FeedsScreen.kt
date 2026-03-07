@@ -115,15 +115,15 @@ fun FeedsScreen(onBack: () -> Unit) {
             text    = {
                 Column {
                     Text(
-                        "Enter the RSS feed URL",
+                        "Enter a website URL or RSS feed address",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                     OutlinedTextField(
                         value           = newFeedUrl,
                         onValueChange   = { newFeedUrl = it },
-                        label           = { Text("Feed URL") },
-                        placeholder     = { Text("https://techcrunch.com/feed/") },
+                        label           = { Text("Website or Feed URL") },
+                        placeholder     = { Text("9to5mac.com") },
                         singleLine      = true,
                         modifier        = Modifier.fillMaxWidth()
                     )

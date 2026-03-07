@@ -1,12 +1,13 @@
 package com.jassun16.flow.ui.screens
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -35,6 +36,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
 
     DisposableEffect(Unit) {
         activity.window?.let { w ->
@@ -52,6 +54,15 @@ fun HomeScreen(
             snackbarHostState.showSnackbar(message)
             viewModel.clearSnackbar()
         }
+    }
+
+    // Scroll to top when refresh completes
+    var wasRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.isRefreshing) {
+        if (wasRefreshing && !uiState.isRefreshing) {
+            listState.animateScrollToItem(0)
+        }
+        wasRefreshing = uiState.isRefreshing
     }
 
     ModalNavigationDrawer(
@@ -87,7 +98,16 @@ fun HomeScreen(
                     title = {
                         Text(
                             text = if (uiState.selectedFeedId == null) "Flow"
-                            else uiState.feeds.find { it.id == uiState.selectedFeedId }?.title ?: "Flow"
+                            else uiState.feeds.find { it.id == uiState.selectedFeedId }?.title ?: "Flow",
+                            modifier = Modifier.clickable(
+                                // no ripple — title tap should feel subtle, not button-like
+                                indication          = null,
+                                interactionSource   = remember {
+                                    androidx.compose.foundation.interaction.MutableInteractionSource()
+                                }
+                            ) {
+                                scope.launch { listState.animateScrollToItem(0) }
+                            }
                         )
                     },
                     navigationIcon = {
@@ -95,21 +115,7 @@ fun HomeScreen(
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
                         }
                     },
-                    actions = {
-                        IconButton(
-                            onClick = { viewModel.refresh() },
-                            enabled = !uiState.isRefreshing
-                        ) {
-                            if (uiState.isRefreshing) {
-                                CircularProgressIndicator(
-                                    modifier    = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                            }
-                        }
-                    },
+                    // ── Refresh IconButton removed — pull-to-refresh is the sole trigger ──
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
@@ -152,6 +158,7 @@ fun HomeScreen(
 
                     else -> {
                         LazyColumn(
+                            state          = listState,
                             modifier       = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(vertical = 4.dp)
                         ) {

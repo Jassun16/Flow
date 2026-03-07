@@ -5,10 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -16,8 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.jassun16.flow.viewmodel.ArticleUiItem
 import coil3.request.crossfade
+import com.jassun16.flow.viewmodel.ArticleUiItem
 
 @Composable
 fun ArticleCard(
@@ -26,35 +29,33 @@ fun ArticleCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-
-    val cardBackground = if (article.isRead)
-        MaterialTheme.colorScheme.surfaceVariant
-    else
-        MaterialTheme.colorScheme.surface
-
-    val titleColor = if (article.isRead)
-        MaterialTheme.colorScheme.onSurfaceVariant
-    else
-        MaterialTheme.colorScheme.onSurface
+    val cardAlpha = if (article.isRead) 0.45f else 1.0f
 
     Column {
         Surface(
             modifier = modifier
                 .fillMaxWidth()
                 .height(120.dp)
+                .alpha(cardAlpha)
                 .clickable(onClick = onClick),
-            color = cardBackground
+            color = MaterialTheme.colorScheme.surface
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                // ── Left column — fills available height so we can anchor read time to bottom ──
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    // ── Metadata row: favicon · feed name · time ago ──
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     ) {
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -67,7 +68,7 @@ fun ArticleCard(
                                 .size(14.dp)
                                 .clip(CircleShape)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text     = article.feedTitle,
                             style    = MaterialTheme.typography.labelMedium,
@@ -81,16 +82,18 @@ fun ArticleCard(
                         )
                     }
 
+                    // ── Title ──
                     Text(
                         text     = article.title,
                         style    = MaterialTheme.typography.titleMedium,
-                        color    = titleColor,
+                        color    = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
 
+                    // ── Excerpt ──
                     if (article.excerpt.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text     = article.excerpt,
                             style    = MaterialTheme.typography.bodyMedium,
@@ -99,11 +102,34 @@ fun ArticleCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+
+                    // ── Push read time to the bottom of the card ──
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // ── Read time row — anchored to bottom ──
+                    if (article.readingTimeMinutes > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector     = Icons.Outlined.Schedule,
+                                contentDescription = null,
+                                modifier        = Modifier.size(11.dp),
+                                tint            = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text  = "${article.readingTimeMinutes} min read",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Thumbnail — always present, gray bg when no image
+                // ── Thumbnail ──
                 Box(
                     modifier = Modifier
                         .size(width = 90.dp, height = 80.dp)

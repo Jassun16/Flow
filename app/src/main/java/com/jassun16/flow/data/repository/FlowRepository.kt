@@ -43,20 +43,28 @@ class FlowRepository @Inject constructor(
     suspend fun addFeed(rssUrl: String): Result<Feed> {
         return withContext(Dispatchers.IO) {
             try {
-                val cleanUrl = rssUrl.trim()
-                if (!cleanUrl.startsWith("http")) {
-                    return@withContext Result.Error("Please enter a valid URL starting with http")
+                // 1. Normalize — prepend https:// if user typed a bare domain
+                var cleanUrl = rssUrl.trim()
+                if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+                    cleanUrl = "https://$cleanUrl"
                 }
-                val domain       = extractDomain(cleanUrl)
-                val faviconUrl   = "https://www.google.com/s2/favicons?domain=$domain&sz=64"
-                val testArticles = rssParser.parseFeed(0L, "", "", cleanUrl)
-                val feedTitle    = if (testArticles.isNotEmpty()) {
+
+                // 2. Autodiscover the real RSS feed URL from any website/domain
+                val feedUrl = rssParser.discoverFeedUrl(cleanUrl)
+                    ?: return@withContext Result.Error("Could not find an RSS feed at that address")
+
+                val domain     = extractDomain(feedUrl)
+                val faviconUrl = "https://www.google.com/s2/favicons?domain=$domain&sz=64"
+
+                // 3. Parse a test batch to grab the feed title
+                val testArticles = rssParser.parseFeed(0L, "", "", feedUrl)
+                val feedTitle = if (testArticles.isNotEmpty()) {
                     testArticles.first().feedTitle.ifEmpty { domain }
                 } else domain
 
                 val feed = Feed(
                     title      = feedTitle,
-                    rssUrl     = cleanUrl,
+                    rssUrl     = feedUrl,          // ← always the real feed URL, never the bare domain
                     websiteUrl = "https://$domain",
                     faviconUrl = faviconUrl
                 )
