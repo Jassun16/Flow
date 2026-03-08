@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.TimeUtils
+import com.jassun16.flow.util.HapticUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
 
@@ -101,6 +102,7 @@ fun ReaderScreen(
                         context,
                         object : GestureDetector.SimpleOnGestureListener() {
                             override fun onDoubleTap(e: MotionEvent): Boolean {
+                                HapticUtils.doubleClick(context)
                                 onBack()
                                 return true
                             }
@@ -210,7 +212,10 @@ fun ReaderScreen(
                         }
                     }
 
-                    IconButton(onClick = { viewModel.toggleBookmark() }) {
+                    IconButton(onClick = {
+                        if (uiState.isBookmarked) HapticUtils.click(context)
+                        else HapticUtils.bookmarkOn(context)
+                        viewModel.toggleBookmark() }) {
                         Icon(
                             if (uiState.isBookmarked) Icons.Default.Bookmark
                             else Icons.Default.BookmarkBorder,

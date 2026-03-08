@@ -117,7 +117,10 @@ fun DrawerContent(
                     },
                     badge = {
                         if (feed.unreadCount > 0) {
-                            Badge {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
+                            ) {
                                 Text(
                                     text  = if (feed.unreadCount > 99) "99+" else feed.unreadCount.toString(),
                                     style = MaterialTheme.typography.labelSmall

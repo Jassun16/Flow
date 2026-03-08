@@ -35,7 +35,7 @@ fun ArticleCard(
         Surface(
             modifier = modifier
                 .fillMaxWidth()
-                .height(120.dp)
+                .height(140.dp)
                 .alpha(cardAlpha)
                 .clickable(onClick = onClick),
             color = MaterialTheme.colorScheme.surface
@@ -98,7 +98,7 @@ fun ArticleCard(
                             text     = article.excerpt,
                             style    = MaterialTheme.typography.bodyMedium,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -132,7 +132,7 @@ fun ArticleCard(
                 // ── Thumbnail ──
                 Box(
                     modifier = Modifier
-                        .size(width = 90.dp, height = 80.dp)
+                        .size(width = 90.dp, height = 96.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {

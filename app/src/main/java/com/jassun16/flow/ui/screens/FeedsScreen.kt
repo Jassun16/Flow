@@ -98,7 +98,7 @@ fun FeedsScreen(onBack: () -> Unit) {
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Remove feed",
-                                tint = MaterialTheme.colorScheme.error
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -161,7 +161,8 @@ fun FeedsScreen(onBack: () -> Unit) {
                         feedToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
                 ) { Text("Remove") }
             },

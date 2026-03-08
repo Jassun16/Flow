@@ -2,6 +2,7 @@ package com.jassun16.flow.ui.screens
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +22,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jassun16.flow.ui.components.ArticleCard
 import com.jassun16.flow.ui.components.DrawerContent
+import com.jassun16.flow.util.HapticUtils
 import com.jassun16.flow.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +41,7 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val pullRefreshState = rememberPullToRefreshState()
 
     DisposableEffect(Unit) {
         activity.window?.let { w ->
@@ -56,10 +61,24 @@ fun HomeScreen(
         }
     }
 
-    // Scroll to top when refresh completes
+    var thresholdCrossed by remember { mutableStateOf(false) }
+    LaunchedEffect(pullRefreshState) {
+        snapshotFlow { pullRefreshState.distanceFraction }
+            .collectLatest { fraction ->
+                if (fraction >= 1f && !thresholdCrossed && !uiState.isRefreshing) {
+                    thresholdCrossed = true
+                    HapticUtils.heavyClick(activity)
+                } else if (fraction < 1f) {
+                    thresholdCrossed = false
+                }
+            }
+    }
+
+    // ── Haptic + scroll to top when refresh completes ──
     var wasRefreshing by remember { mutableStateOf(false) }
     LaunchedEffect(uiState.isRefreshing) {
         if (wasRefreshing && !uiState.isRefreshing) {
+            HapticUtils.hardStop(activity)
             listState.animateScrollToItem(0)
         }
         wasRefreshing = uiState.isRefreshing
@@ -100,13 +119,15 @@ fun HomeScreen(
                             text = if (uiState.selectedFeedId == null) "Flow"
                             else uiState.feeds.find { it.id == uiState.selectedFeedId }?.title ?: "Flow",
                             modifier = Modifier.clickable(
-                                // no ripple — title tap should feel subtle, not button-like
-                                indication          = null,
-                                interactionSource   = remember {
-                                    androidx.compose.foundation.interaction.MutableInteractionSource()
-                                }
+                                indication        = null,
+                                interactionSource = remember { MutableInteractionSource() }
                             ) {
-                                scope.launch { listState.animateScrollToItem(0) }
+                                scope.launch {
+                                    HapticUtils.tick(activity)
+                                    listState.animateScrollToItem(0)
+                                    // Hard stop fires when animation lands at top
+                                    HapticUtils.hardStop(activity)
+                                }
                             }
                         )
                     },
@@ -115,7 +136,6 @@ fun HomeScreen(
                             Icon(Icons.Default.Menu, contentDescription = "Menu")
                         }
                     },
-                    // ── Refresh IconButton removed — pull-to-refresh is the sole trigger ──
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
@@ -124,8 +144,12 @@ fun HomeScreen(
         ) { paddingValues ->
             PullToRefreshBox(
                 isRefreshing = uiState.isRefreshing,
-                onRefresh    = { viewModel.refresh() },
-                modifier     = Modifier
+                onRefresh    = {
+                    HapticUtils.thud(activity)   // spring-snap on release
+                    viewModel.refresh()
+                },
+                state = pullRefreshState,
+                modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {

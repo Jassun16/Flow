@@ -43,40 +43,49 @@ class FlowRepository @Inject constructor(
     suspend fun addFeed(rssUrl: String): Result<Feed> {
         return withContext(Dispatchers.IO) {
             try {
-                // 1. Normalize — prepend https:// if user typed a bare domain
+                // 1. Normalize URL
                 var cleanUrl = rssUrl.trim()
                 if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
                     cleanUrl = "https://$cleanUrl"
                 }
 
-                // 2. Autodiscover the real RSS feed URL from any website/domain
+                // 2. Autodiscover real RSS feed URL
                 val feedUrl = rssParser.discoverFeedUrl(cleanUrl)
                     ?: return@withContext Result.Error("Could not find an RSS feed at that address")
 
                 val domain     = extractDomain(feedUrl)
                 val faviconUrl = "https://www.google.com/s2/favicons?domain=$domain&sz=64"
 
-                // 3. Parse a test batch to grab the feed title
-                val testArticles = rssParser.parseFeed(0L, "", "", feedUrl)
-                val feedTitle = if (testArticles.isNotEmpty()) {
-                    testArticles.first().feedTitle.ifEmpty { domain }
-                } else domain
+                // 3. Extract proper channel-level title from the feed XML
+                val feedTitle = rssParser.extractFeedTitle(feedUrl)
+                    ?.ifEmpty { domain }
+                    ?: domain
 
                 val feed = Feed(
                     title      = feedTitle,
-                    rssUrl     = feedUrl,          // ← always the real feed URL, never the bare domain
+                    rssUrl     = feedUrl,
                     websiteUrl = "https://$domain",
-                    faviconUrl = faviconUrl
+                    faviconUrl = faviconUrl,
+                    addedAt    = System.currentTimeMillis()   // ← ensures new feeds sort to bottom
                 )
                 val id = feedDao.insertFeed(feed)
-                if (id == -1L) Result.Error("This feed is already added")
-                else Result.Success(feed.copy(id = id))
+                if (id == -1L) return@withContext Result.Error("This feed is already added")
+
+                // 4. Immediately fetch articles so unread badge populates
+                val articles = rssParser.parseFeed(id, feedTitle, faviconUrl, feedUrl)
+                if (articles.isNotEmpty()) {
+                    articleDao.insertArticles(articles)
+                    feedDao.updateUnreadCount(id, articles.size)
+                }
+
+                Result.Success(feed.copy(id = id))
 
             } catch (e: Exception) {
                 Result.Error("Could not add feed: ${e.message}")
             }
         }
     }
+
 
     suspend fun deleteFeed(feed: Feed) {
         withContext(Dispatchers.IO) { feedDao.deleteFeed(feed) }

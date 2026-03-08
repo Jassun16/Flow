@@ -276,7 +276,7 @@ class RssParser @Inject constructor() {
             val body        = response.body?.string() ?: return null
             val trimmed     = body.trimStart()
 
-            // Already a feed — XML/RSS/Atom content type or body starts with XML tags
+            // 1. Already a feed — XML/RSS/Atom response
             if (contentType.contains("xml") || contentType.contains("rss") ||
                 contentType.contains("atom") || trimmed.startsWith("<?xml") ||
                 trimmed.startsWith("<rss") || trimmed.startsWith("<feed")
@@ -285,8 +285,7 @@ class RssParser @Inject constructor() {
                 return url
             }
 
-            // HTML page — look for <link type="application/rss+xml" href="...">
-            // Handles both attribute orderings
+            // 2. HTML autodiscovery — <link rel="alternate" type="application/rss+xml">
             val typeFirst = Regex(
                 """<link[^>]+type=["'](application/rss\+xml|application/atom\+xml)["'][^>]+href=["']([^"']+)["']""",
                 RegexOption.IGNORE_CASE
@@ -295,32 +294,100 @@ class RssParser @Inject constructor() {
                 """<link[^>]+href=["']([^"']+)["'][^>]+type=["'](application/rss\+xml|application/atom\+xml)["']""",
                 RegexOption.IGNORE_CASE
             )
-
             val discoveredHref = typeFirst.find(body)?.groupValues?.get(2)
                 ?: hrefFirst.find(body)?.groupValues?.get(1)
 
-            if (discoveredHref == null) {
-                Log.e("RssParser", "discoverFeedUrl: no feed link found in HTML at $url")
-                return null
+            if (discoveredHref != null) {
+                val resolved = resolveUrl(url, discoveredHref)
+                Log.d("RssParser", "discoverFeedUrl: autodiscovered → $resolved")
+                return resolved
             }
 
-            // Resolve relative URLs against the base
-            val resolved = when {
-                discoveredHref.startsWith("http") -> discoveredHref
-                discoveredHref.startsWith("//")   -> "https:$discoveredHref"
-                discoveredHref.startsWith("/")    -> {
-                    val proto  = url.substringBefore("://")
-                    val domain = url.substringAfter("://").substringBefore("/")
-                    "$proto://$domain$discoveredHref"
-                }
-                else -> "${url.trimEnd('/')}/$discoveredHref"
+            // 3. Fallback — probe common WordPress / standard feed paths
+            val proto  = url.substringBefore("://")
+            val domain = url.substringAfter("://").substringBefore("/")
+            val base   = "$proto://$domain"
+
+            val commonPaths = listOf(
+                "/feed/", "/feed", "/rss/", "/rss", "/atom.xml",
+                "/feed.xml", "/rss.xml", "/index.xml", "/blog/feed/"
+            )
+            for (path in commonPaths) {
+                val candidate = "$base$path"
+                try {
+                    val probeResponse = client.newCall(
+                        Request.Builder()
+                            .url(candidate)
+                            .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
+                            .build()
+                    ).execute()
+                    val probeType = probeResponse.header("Content-Type") ?: ""
+                    val probeBody = probeResponse.body?.string()?.trimStart() ?: continue
+                    if (probeResponse.isSuccessful &&
+                        (probeType.contains("xml") || probeType.contains("rss") ||
+                                probeType.contains("atom") || probeBody.startsWith("<?xml") ||
+                                probeBody.startsWith("<rss") || probeBody.startsWith("<feed"))
+                    ) {
+                        Log.d("RssParser", "discoverFeedUrl: probed → $candidate")
+                        return candidate
+                    }
+                } catch (_: Exception) { }
             }
 
-            Log.d("RssParser", "discoverFeedUrl: discovered → $resolved")
-            resolved
+            Log.e("RssParser", "discoverFeedUrl: no feed found at $url")
+            null
 
         } catch (e: Exception) {
             Log.e("RssParser", "discoverFeedUrl error for $url: ${e.message}")
+            null
+        }
+    }
+
+    // Resolves relative hrefs against the base URL
+    private fun resolveUrl(base: String, href: String): String = when {
+        href.startsWith("http") -> href
+        href.startsWith("//")   -> "https:$href"
+        href.startsWith("/")    -> {
+            val proto  = base.substringBefore("://")
+            val domain = base.substringAfter("://").substringBefore("/")
+            "$proto://$domain$href"
+        }
+        else -> "${base.trimEnd('/')}/$href"
+    }
+
+    /** Fetches a feed URL and extracts the channel-level <title> — not article titles */
+    fun extractFeedTitle(url: String): String? {
+        return try {
+            val xml = downloadFeed(url) ?: return null
+            val parser = Xml.newPullParser()
+            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+            parser.setInput(StringReader(xml))
+
+            var currentTag = ""
+            var inItem     = false
+            var eventType  = parser.eventType
+
+            while (eventType != XmlPullParser.END_DOCUMENT) {
+                when (eventType) {
+                    XmlPullParser.START_TAG -> {
+                        val tag = parser.name?.lowercase() ?: ""
+                        currentTag = tag
+                        if (tag == "item" || tag == "entry") inItem = true
+                    }
+                    XmlPullParser.TEXT, XmlPullParser.CDSECT -> {
+                        // Only capture title BEFORE the first item/entry = channel-level title
+                        if (!inItem && currentTag == "title") {
+                            val text = parser.text?.trim()
+                            if (!text.isNullOrEmpty()) return text
+                        }
+                    }
+                    XmlPullParser.END_TAG -> currentTag = ""
+                }
+                eventType = parser.next()
+            }
+            null
+        } catch (e: Exception) {
+            Log.e("RssParser", "extractFeedTitle error for $url: ${e.message}")
             null
         }
     }
