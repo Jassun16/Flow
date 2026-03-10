@@ -31,4 +31,7 @@ interface FeedDao {
 
     @Query("SELECT COUNT(*) FROM articles WHERE feedId = :feedId AND isRead = 0")
     suspend fun getUnreadCount(feedId: Long): Int
+
+    @Query("UPDATE feeds SET lastFetched = :timestamp WHERE id = :feedId")
+    suspend fun updateLastFetched(feedId: Long, timestamp: Long)
 }

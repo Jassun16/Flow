@@ -13,5 +13,6 @@ data class Feed(
     val websiteUrl: String,     // e.g. "https://techcrunch.com"
     val faviconUrl: String,     // fetched from Google favicon service
     val unreadCount: Int = 0,   // cached count shown as badge in drawer
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    val lastFetched: Long = 0
 )

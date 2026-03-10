@@ -77,6 +77,7 @@ class FlowRepository @Inject constructor(
                     articleDao.insertArticles(articles)
                     feedDao.updateUnreadCount(id, articles.size)
                 }
+                feedDao.updateLastFetched(id, System.currentTimeMillis())
 
                 Result.Success(feed.copy(id = id))
 
@@ -104,29 +105,49 @@ class FlowRepository @Inject constructor(
                     return@withContext Result.Success(0)
                 }
 
-                val deferredResults = feeds.map { feed ->
+                val fifteenMinutesAgo = System.currentTimeMillis() - (15 * 60 * 1_000)
+                val feedsToRefresh    = feeds.filter { it.lastFetched < fifteenMinutesAgo }
+
+                val deferredResults = feedsToRefresh.map { feed ->
                     async {
-                        rssParser.parseFeed(
+                        val articles = rssParser.parseFeed(
                             feedId         = feed.id,
                             feedTitle      = feed.title,
                             feedFaviconUrl = feed.faviconUrl,
                             rssUrl         = feed.rssUrl
                         )
+                        // Stamp immediately after successful parse — even if 0 articles returned
+                        // (site may be empty, not broken) — prevents hammering dead feeds
+                        feedDao.updateLastFetched(feed.id, System.currentTimeMillis())
+                        articles
                     }
                 }
 
                 val allArticles = deferredResults.awaitAll().flatten()
 
-                // Insert new articles (IGNORE skips duplicates — preserves read/bookmark state)
                 val insertedIds = articleDao.insertArticles(allArticles)
                 val newCount    = insertedIds.count { it != -1L }
 
-                // Patch thumbnails for any existing article that was stored with null
+// Patch thumbnails for any existing article that now has one from the feed XML
                 allArticles.forEach { article ->
                     if (article.thumbnailUrl != null) {
                         articleDao.updateThumbnailIfNull(article.url, article.thumbnailUrl)
                     }
                 }
+
+// Batch-fetch OG images — only for articles that were newly inserted AND still have no thumbnail
+                val noThumbnailUrls = allArticles
+                    .zip(insertedIds)
+                    .filter { (article, rowId) -> rowId != -1L && article.thumbnailUrl == null }
+                    .map { (article, _) -> article.url }
+
+                if (noThumbnailUrls.isNotEmpty()) {
+                    val ogImages = rssParser.fetchOgImagesBatched(noThumbnailUrls)
+                    ogImages.forEach { (url, ogUrl) ->
+                        articleDao.updateThumbnailIfNull(url, ogUrl)
+                    }
+                }
+
 
                 feeds.forEach { feed ->
                     val count = articleDao.getUnreadCountForFeed(feed.id)

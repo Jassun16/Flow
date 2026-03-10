@@ -14,6 +14,12 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import okio.Buffer
 
 @Singleton
 class RssParser @Inject constructor() {
@@ -63,21 +69,58 @@ class RssParser @Inject constructor() {
         }
     }
 
+    // Reads only up to </head> — og:image is always in <head>, avoids full page download
     private fun fetchOgImage(articleUrl: String): String? {
         return try {
-            val request  = Request.Builder()
+            val request = Request.Builder()
                 .url(articleUrl)
                 .header("User-Agent", "Mozilla/5.0 (Android) Flow RSS Reader")
                 .build()
-            val html     = client.newCall(request).execute().body?.string() ?: return null
-            val ogRegex  = Regex("""<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-            val ogRegex2 = Regex("""<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']""", RegexOption.IGNORE_CASE)
-            (ogRegex.find(html) ?: ogRegex2.find(html))?.groupValues?.get(1)
+            val response = client.newCall(request).execute()
+            val source   = response.body?.source() ?: return null
+            val sb       = StringBuilder()
+            val buf      = Buffer()
+            while (!source.exhausted()) {
+                source.read(buf, 4096)
+                sb.append(buf.readUtf8())
+                if (sb.contains("</head>", ignoreCase = true)) break
+            }
+            response.body?.close()
+            val head    = sb.toString()
+            val regex1  = Regex("""<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+            val regex2  = Regex("""<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']""", RegexOption.IGNORE_CASE)
+            (regex1.find(head) ?: regex2.find(head))?.groupValues?.get(1)
                 ?.takeIf { it.startsWith("http") }
         } catch (e: Exception) {
             null
         }
     }
+
+    /**
+     * Fetches OG images for a list of article URLs in parallel,
+     * capped at [concurrency] simultaneous requests.
+     * Returns a map of articleUrl → ogImageUrl for successful hits only.
+     */
+    suspend fun fetchOgImagesBatched(
+        urls: List<String>,
+        concurrency: Int = 6
+    ): Map<String, String> {
+        if (urls.isEmpty()) return emptyMap()
+        val semaphore = Semaphore(concurrency)
+        return coroutineScope {
+            urls.map { url ->
+                async {
+                    semaphore.withPermit {
+                        val ogUrl = fetchOgImage(url)
+                        if (ogUrl != null) url to ogUrl else null
+                    }
+                }
+            }.awaitAll()
+                .filterNotNull()
+                .toMap()
+        }
+    }
+
 
 
     private fun parseXml(
@@ -210,8 +253,7 @@ class RssParser @Inject constructor() {
                                         url                = link.trim(),
                                         thumbnailUrl       = thumbnail
                                             ?: extractImageFromHtml(contentEncoded)
-                                            ?: extractImageFromHtml(description)
-                                            ?: fetchOgImage(link.trim()),
+                                            ?: extractImageFromHtml(description),
                                         excerpt            = cleanExcerpt,
                                         fullContent        = null,
                                         author             = author.takeIf { it.isNotEmpty() },

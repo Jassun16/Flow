@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities  = [Feed::class, Article::class],
-    version   = 3,                // ← bumped from 2 to 3
+    version   = 4,              // ← bumped from 3 to 4
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,6 +54,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // ── Migration 3 → 4: add lastFetched column to feeds ─────────
+// DEFAULT 0 = never fetched — all existing feeds will refresh
+// once on next pull-to-refresh, then respect the 15-min window
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE feeds ADD COLUMN lastFetched INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -76,7 +87,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "flow_database"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)   // ← added MIGRATION_2_3
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

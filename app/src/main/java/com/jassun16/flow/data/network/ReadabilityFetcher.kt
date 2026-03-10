@@ -5,6 +5,10 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 data class ReadableArticle(
     val title:   String,
@@ -24,38 +28,38 @@ class ReadabilityFetcher @Inject constructor() {
         "div.newsletter", "div.social-share"
     )
 
-    fun fetch(url: String): ReadableArticle {
-        return try {
-            // Jsoup downloads the page and parses it into a DOM tree
-            // userAgent mimics a real browser so sites don't block us
-            val doc = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36")
-                .timeout(15_000)
-                .get()
+    suspend fun fetch(url: String): ReadableArticle {
+        return withContext(Dispatchers.IO) {
+            try {
+                withTimeout(20_000L) {
+                    val doc = Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36")
+                        .timeout(12_000)
+                        .get()
 
-            // ── Tier 2+3: clean junk from doc before extraction ──────────
-            val cleanedHtml = ArticleExtractor.cleanHtml(doc.outerHtml(), url)
-            val cleanDoc    = Jsoup.parse(cleanedHtml, url)          // ← use this below
-            // ─────────────────────────────────────────────────────────────
+                    val cleanedHtml = ArticleExtractor.cleanHtml(doc.outerHtml(), url)
+                    val cleanDoc    = Jsoup.parse(cleanedHtml, url)
 
-            val title  = extractTitle(cleanDoc)     // ← was doc, now cleanDoc
-            val author = extractAuthor(cleanDoc)    // ← was doc, now cleanDoc
-            val body   = extractMainContent(cleanDoc) // ← was doc, now cleanDoc
+                    val title  = extractTitle(cleanDoc)
+                    val author = extractAuthor(cleanDoc)
+                    val body   = extractMainContent(cleanDoc)
 
-            if (body.isNullOrBlank() || body.length < 200) {
-                ReadableArticle(title, "", author, success = false)
-            } else {
-                ReadableArticle(
-                    title   = title,
-                    content = cleanContent(body),
-                    author  = author,
-                    success = true
-                )
+                    if (body.isNullOrBlank() || body.length < 200) {
+                        ReadableArticle(title, "", author, success = false)
+                    } else {
+                        ReadableArticle(
+                            title   = title,
+                            content = cleanContent(body),
+                            author  = author,
+                            success = true
+                        )
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e   // never swallow — lets ReaderViewModel cancel cleanly
+            } catch (e: Exception) {
+                ReadableArticle("", "", null, success = false)
             }
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            ReadableArticle("", "", null, success = false)
         }
     }
 
