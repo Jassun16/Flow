@@ -3,6 +3,8 @@
 
     <style name="Theme.Flow" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#000000</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_constellation_animated</item>
+        <item name="windowSplashScreenAnimationDuration">23200</item>
         <item name="postSplashScreenTheme">@style/Theme.Flow.Main</item>
     </style>
 

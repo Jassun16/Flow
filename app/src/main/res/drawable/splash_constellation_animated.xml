@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/splash_constellation">
+    <target android:name="star1"      android:animation="@animator/anim_star1"/>
+    <target android:name="star2"      android:animation="@animator/anim_star2"/>
+    <target android:name="star3"      android:animation="@animator/anim_star3"/>
+    <target android:name="connectors" android:animation="@animator/anim_connectors"/>
+</animated-vector>

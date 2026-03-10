@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Connector lines — start invisible, animated in last -->
+    <group android:name="connectors" android:alpha="0">
+        <path
+            android:pathData="M65,140 L100,60"
+            android:strokeColor="#4A90D9"
+            android:strokeWidth="1"
+            android:fillColor="@android:color/transparent"/>
+        <path
+            android:pathData="M100,60 L152,115"
+            android:strokeColor="#4A90D9"
+            android:strokeWidth="1"
+            android:fillColor="@android:color/transparent"/>
+    </group>
+
+    <!-- Star 1 — large, scale 0 → animated to 0.65 -->
+    <group android:name="star1"
+        android:translateX="65"
+        android:translateY="140"
+        android:scaleX="0"
+        android:scaleY="0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M0,-42 L1.1,-2.8 L12.7,-12.7 L2.8,-1.2 L42,0 L2.8,1.2 L12.7,12.7 L1.2,2.8 L0,42 L-1.2,2.8 L-12.7,12.7 L-2.8,1.2 L-42,0 L-2.8,-1.2 L-12.7,-12.7 L-1.1,-2.8 Z"/>
+    </group>
+
+    <!-- Star 2 — medium, scale 0 → animated to 0.44 -->
+    <group android:name="star2"
+        android:translateX="100"
+        android:translateY="60"
+        android:scaleX="0"
+        android:scaleY="0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M0,-42 L1.1,-2.8 L12.7,-12.7 L2.8,-1.2 L42,0 L2.8,1.2 L12.7,12.7 L1.2,2.8 L0,42 L-1.2,2.8 L-12.7,12.7 L-2.8,1.2 L-42,0 L-2.8,-1.2 L-12.7,-12.7 L-1.1,-2.8 Z"/>
+    </group>
+
+    <!-- Star 3 — small, scale 0 → animated to 0.30 -->
+    <group android:name="star3"
+        android:translateX="152"
+        android:translateY="115"
+        android:scaleX="0"
+        android:scaleY="0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M0,-42 L1.1,-2.8 L12.7,-12.7 L2.8,-1.2 L42,0 L2.8,1.2 L12.7,12.7 L1.2,2.8 L0,42 L-1.2,2.8 L-12.7,12.7 L-2.8,1.2 L-42,0 L-2.8,-1.2 L-12.7,-12.7 L-1.1,-2.8 Z"/>
+    </group>
+</vector>
