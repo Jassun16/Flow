@@ -6,14 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.jassun16.flow.BuildConfig
 
 @Database(
-    entities  = [Feed::class, Article::class],
-    version   = 4,              // ← bumped from 3 to 4
-    exportSchema = false
+    entities     = [Feed::class, Article::class],
+    version      = 4,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -22,7 +20,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
 
-        // ── Migration 1 → 2: add unique index on article URL ─────────
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -32,11 +29,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ── Migration 2 → 3: add performance indices ──────────────────
-        // These speed up the three most frequent queries:
-        //   getAllArticles()         — ORDER BY publishedAt DESC
-        //   getBookmarkedArticles()  — WHERE isBookmarked = 1
-        //   getUnreadCountForFeed()  — WHERE feedId = ? AND isRead = 0
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -54,9 +46,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // ── Migration 3 → 4: add lastFetched column to feeds ─────────
-// DEFAULT 0 = never fetched — all existing feeds will refresh
-// once on next pull-to-refresh, then respect the 15-min window
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -69,10 +58,10 @@ abstract class AppDatabase : RoomDatabase() {
         private var INSTANCE: AppDatabase? = null
 
         private val STARTER_FEEDS = listOf(
-            Triple("Android Police",  "https://www.androidpolice.com/feed/",   "https://www.androidpolice.com"),
-            Triple("9to5Google",      "https://9to5google.com/feed/",           "https://9to5google.com"),
-            Triple("The Verge",       "https://www.theverge.com/rss/index.xml", "https://www.theverge.com"),
-            Triple("TechCrunch",      "https://techcrunch.com/feed/",           "https://techcrunch.com")
+            Triple("Android Police", "https://www.androidpolice.com/feed/",   "https://www.androidpolice.com"),
+            Triple("9to5Google",     "https://9to5google.com/feed/",           "https://9to5google.com"),
+            Triple("The Verge",      "https://www.theverge.com/rss/index.xml", "https://www.theverge.com"),
+            Triple("TechCrunch",     "https://techcrunch.com/feed/",           "https://techcrunch.com")
         )
 
         fun getDatabase(context: Context): AppDatabase {
@@ -88,16 +77,21 @@ abstract class AppDatabase : RoomDatabase() {
                 "flow_database"
             )
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .apply {
+                    if (BuildConfig.DEBUG) {
+                        fallbackToDestructiveMigration(true)
+                    }
+                }
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
                         STARTER_FEEDS.forEach { (title, rssUrl, websiteUrl) ->
                             val faviconUrl = "https://www.google.com/s2/favicons?domain=$websiteUrl&sz=64"
                             db.execSQL("""
-                    INSERT OR IGNORE INTO feeds 
-                    (title, rssUrl, websiteUrl, faviconUrl, unreadCount, addedAt)
-                    VALUES ('$title', '$rssUrl', '$websiteUrl', '$faviconUrl', 0, ${System.currentTimeMillis()})
-                """.trimIndent())
+                                INSERT OR IGNORE INTO feeds
+                                (title, rssUrl, websiteUrl, faviconUrl, unreadCount, addedAt)
+                                VALUES ('$title', '$rssUrl', '$websiteUrl', '$faviconUrl', 0, 0)
+                            """.trimIndent())
                         }
                     }
                 })

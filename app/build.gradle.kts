@@ -7,44 +7,22 @@ plugins {
 }
 
 android {
-
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-
-
-//    buildTypes {
-//        getByName("release") {
-//            isMinifyEnabled = false      // ← disables R8 shrinking
-//            isShrinkResources = false    // ← disables resource shrinking
-//            signingConfig = signingConfigs.getByName("debug")
-//        }
-//    }
-
-
-    namespace   = "com.jassun16.flow"
-    compileSdk  = 36
+    namespace  = "com.jassun16.flow"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId   = "com.jassun16.flow"
-        minSdk          = 36          // Android 16 only — your Pixel 8 Pro
-        targetSdk       = 36
-        versionCode     = 1
-        versionName     = "1.0"
+        applicationId = "com.jassun16.flow"
+        minSdk        = 36
+        targetSdk     = 36
+        versionCode   = 1
+        versionName   = "1.0"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled   = true   // shrinks APK by removing unused code
-            isShrinkResources = true   // removes unused image/file assets
+            isMinifyEnabled   = true
+            isShrinkResources = true
+            signingConfig     = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -63,10 +41,14 @@ android {
         }
     }
 
-
     buildFeatures {
-        compose = true   // enables Jetpack Compose
+        compose     = true
+        buildConfig = true
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -77,10 +59,7 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.appcompat)
 
-
     // ── Jetpack Compose ───────────────────────────────────────
-    // BOM = Bill of Materials: ensures ALL compose libraries
-    // use compatible versions automatically — no version conflicts
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     implementation(libs.compose.ui)
@@ -91,13 +70,12 @@ dependencies {
     // ── Navigation ────────────────────────────────────────────
     implementation(libs.navigation.compose)
 
-    // ── Room (local database) ─────────────────────────────────
+    // ── Room ──────────────────────────────────────────────────
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
-    ksp(libs.room.compiler)          // ksp = Kotlin Symbol Processing
-    // generates Room boilerplate at build time
+    ksp(libs.room.compiler)
 
-    // ── Hilt (dependency injection) ───────────────────────────
+    // ── Hilt ──────────────────────────────────────────────────
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation)
@@ -106,11 +84,11 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter)
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)  // logs network calls in debug mode
+    implementation(libs.okhttp.logging)
 
     // ── HTML Parsing ──────────────────────────────────────────
     implementation(libs.jsoup)
-    implementation("net.dankito.readability4j:readability4j:1.0.8")  // ← ADD THIS
+    implementation("net.dankito.readability4j:readability4j:1.0.8")
 
     // ── Image Loading ─────────────────────────────────────────
     implementation(libs.coil.compose)
@@ -124,10 +102,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.7")
 
-
-
     // ── Gemini Nano (on-device AI) ────────────────────────────
-   // implementation(libs.mlkit.genai.common)
-   // implementation(libs.mlkit.genai.summarization)
-
+    // implementation(libs.mlkit.genai.common)
+    // implementation(libs.mlkit.genai.summarization)
 }
