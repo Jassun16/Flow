@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
 import net.dankito.readability4j.Readability4J
 import javax.inject.Inject
 import com.jassun16.flow.data.network.ReadingTimeCalculator
+import com.jassun16.flow.util.GeminiNanoSummarizer
+import com.jassun16.flow.util.SummarizerReadyState
 
 
 data class ReaderUiState(
@@ -39,6 +41,7 @@ data class ReaderUiState(
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val repository: FlowRepository,
+    private val geminiNanoSummarizer: GeminiNanoSummarizer,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -219,22 +222,98 @@ class ReaderViewModel @Inject constructor(
 
     fun generateSummary() {
         val content = _uiState.value.fullContent ?: return
+        if (_uiState.value.isSummarizing) return   // prevent double-tap
+
         viewModelScope.launch {
             _uiState.update { it.copy(isSummarizing = true, summary = null) }
-            try {
-                val plainText = content.replace(Regex("<[^>]+>"), "")
-                val wordCount = plainText.split(" ").size
+
+            // Strip HTML → plain text
+            val plainText = content
+                .replace(Regex("<[^>]+>"), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+
+            if (plainText.length < 400) {
                 _uiState.update {
                     it.copy(
-                        summary       = "Gemini Nano summary will be wired in Step 10 ($wordCount words in article)",
-                        isSummarizing = false
+                        isSummarizing   = false,
+                        snackbarMessage = "Article is too short to summarize"
                     )
                 }
+                return@launch
+            }
+
+            when (val state = geminiNanoSummarizer.checkAndPrepare()) {
+                is SummarizerReadyState.Unavailable -> {
+                    _uiState.update {
+                        it.copy(
+                            isSummarizing   = false,
+                            snackbarMessage = "Gemini Nano is not supported on this device"
+                        )
+                    }
+                    return@launch
+                }
+                is SummarizerReadyState.Downloading -> {
+                    _uiState.update {
+                        it.copy(snackbarMessage = "Downloading AI model (~300 MB), please wait…")
+                    }
+                    // isSummarizing stays true — spinner remains while download completes
+                    return@launch
+                }
+                is SummarizerReadyState.Error -> {
+                    val fullError = buildString {
+                        append(state.message)
+                    }
+                    val userMessage = when {
+                        fullError.contains("FEATURE_NOT_FOUND", ignoreCase = true) ||
+                                fullError.contains("606", ignoreCase = true) ->
+                            "Gemini Nano is setting up. Connect to WiFi, plug in to charge, and try again in 30 minutes."
+                        fullError.contains("UNAVAILABLE", ignoreCase = true) ->
+                            "Gemini Nano is not available on this device."
+                        fullError.contains("PREPARATION_ERROR", ignoreCase = true) ->
+                            "Gemini Nano is not ready yet. Try again in a few minutes."
+                        else ->
+                            "Could not start summarization. Please try again."
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isSummarizing   = false,
+                            snackbarMessage = userMessage
+                        )
+                    }
+                    return@launch
+                }
+                is SummarizerReadyState.Ready -> Unit   // fall through to inference
+            }
+
+            // Stream tokens into summary — user sees bullets build live
+            try {
+                geminiNanoSummarizer.summarize(plainText).collect { token ->
+                    val current = _uiState.value.summary ?: ""
+                    _uiState.update { it.copy(summary = current + token) }
+                }
+                _uiState.update { it.copy(isSummarizing = false) }
             } catch (e: Exception) {
+                val fullError = buildString {
+                    append(e.message ?: "")
+                    append(e.cause?.message ?: "")
+                    append(e.cause?.cause?.message ?: "")
+                }
+                val userMessage = when {
+                    fullError.contains("FEATURE_NOT_FOUND", ignoreCase = true) ||
+                            fullError.contains("606", ignoreCase = true) ->
+                        "Gemini Nano is setting up. Connect to WiFi, plug in to charge, and try again in 30 minutes."
+                    fullError.contains("UNAVAILABLE", ignoreCase = true) ->
+                        "Gemini Nano is not available on this device."
+                    fullError.contains("PREPARATION_ERROR", ignoreCase = true) ->
+                        "Gemini Nano is not ready yet. Try again in a few minutes."
+                    else ->
+                        "Summarization failed. Please try again."
+                }
                 _uiState.update {
                     it.copy(
-                        summary       = "Summary unavailable. Ensure AICore app is updated.",
-                        isSummarizing = false
+                        isSummarizing   = false,
+                        snackbarMessage = userMessage
                     )
                 }
             }
@@ -247,6 +326,7 @@ class ReaderViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        geminiNanoSummarizer.close()
     }
 
     private fun Article.toUiItem() = ArticleUiItem(

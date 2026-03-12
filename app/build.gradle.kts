@@ -103,6 +103,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.7")
 
     // ── Gemini Nano (on-device AI) ────────────────────────────
-    // implementation(libs.mlkit.genai.common)
-    // implementation(libs.mlkit.genai.summarization)
+    implementation(libs.mlkit.genai.common)
+    implementation(libs.mlkit.genai.summarization)
 }

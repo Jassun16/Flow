@@ -16,8 +16,8 @@ jsoup                = "1.18.3"
 coil                 = "3.0.4"
 datastore            = "1.1.2"
 coroutines           = "1.9.0"
-#mlkitGenaiCommon     = "1.0.0-beta1"
-#mlkitSummarization   = "1.0.0-beta1"
+mlkitGenaiCommon     = "1.0.0-beta1"
+mlkitSummarization   = "1.0.0-beta1"
 splashscreen         = "1.2.0"
 appcompat = "1.7.0"
 
@@ -69,8 +69,8 @@ datastore-prefs      = { group = "androidx.datastore", name = "datastore-prefere
 coroutines-android   = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
 # Gemini Nano (on-device AI)
-#mlkit-genai-common        = { group = "com.google.mlkit", name = "genai-common",        version.ref = "mlkitGenaiCommon" }
-#mlkit-genai-summarization = { group = "com.google.mlkit", name = "genai-summarization", version.ref = "mlkitSummarization" }
+mlkit-genai-common        = { group = "com.google.mlkit", name = "genai-common",        version.ref = "mlkitGenaiCommon" }
+mlkit-genai-summarization = { group = "com.google.mlkit", name = "genai-summarization", version.ref = "mlkitSummarization" }
 
 [plugins]
 android-application  = { id = "com.android.application",          version.ref = "agp" }
