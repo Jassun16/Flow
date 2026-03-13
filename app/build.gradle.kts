@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.foundation)
 
     // ── Jetpack Compose ───────────────────────────────────────
     val composeBom = platform(libs.compose.bom)
@@ -105,4 +106,7 @@ dependencies {
     // ── Gemini Nano (on-device AI) ────────────────────────────
     implementation(libs.mlkit.genai.common)
     implementation(libs.mlkit.genai.summarization)
+
+    implementation("androidx.compose.material:material-icons-extended")
+
 }

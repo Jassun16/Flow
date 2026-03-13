@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 interface FeedDao {
 
     // Flow<> = live stream of data — UI auto-updates when feeds change
-    @Query("SELECT * FROM feeds ORDER BY title ASC")
+    @Query("SELECT * FROM feeds ORDER BY addedAt ASC")
     fun getAllFeeds(): Flow<List<Feed>>
 
     @Query("SELECT * FROM feeds WHERE id = :feedId")

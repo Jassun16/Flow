@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -39,6 +41,8 @@ class FlowRepository @Inject constructor(
     // ── Feed Operations ────────────────────────────────────────────────────
 
     fun getAllFeeds(): Flow<List<Feed>> = feedDao.getAllFeeds()
+    fun searchArticles(query: String): Flow<List<Article>> =
+        articleDao.searchArticles(query)
 
     suspend fun addFeed(rssUrl: String): Result<Feed> {
         return withContext(Dispatchers.IO) {
@@ -207,14 +211,26 @@ class FlowRepository @Inject constructor(
         }
     }
 
-    suspend fun prefetchRecentArticles() {
+    suspend fun prefetchRecentArticles(
+        onProgress: (completed: Int, total: Int) -> Unit = { _, _ -> }
+    ) {
         if (!isOnWifi()) return
         withContext(Dispatchers.IO) {
             try {
-                val articles = articleDao.getRecentArticlesWithoutContent(20)
+                val articles  = articleDao.getRecentArticlesWithoutContent(50)
+                val total     = articles.size
+                if (total == 0) return@withContext
+
+                val semaphore = kotlinx.coroutines.sync.Semaphore(4)
+                var completed = 0
+
                 articles.map { article ->
                     async {
-                        try { getFullContent(article) } catch (_: Exception) { }
+                        semaphore.withPermit {
+                            try { getFullContent(article) } catch (_: Exception) { }
+                        }
+                        synchronized(this) { completed++ }
+                        onProgress(completed, total)
                     }
                 }.awaitAll()
             } catch (_: Exception) { }

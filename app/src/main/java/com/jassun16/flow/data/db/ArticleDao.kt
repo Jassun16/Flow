@@ -96,4 +96,14 @@ interface ArticleDao {
 
     @Query("SELECT COUNT(*) FROM articles WHERE feedId = :feedId AND isRead = 0")
     suspend fun getUnreadCountForFeed(feedId: Long): Int
+
+    // --- Query to search in the articles -----------------------------------
+
+    @Query("""
+    SELECT * FROM articles 
+    WHERE title LIKE '%' || :query || '%' 
+    OR excerpt LIKE '%' || :query || '%'
+    ORDER BY publishedAt DESC
+""")
+    fun searchArticles(query: String): Flow<List<Article>>
 }

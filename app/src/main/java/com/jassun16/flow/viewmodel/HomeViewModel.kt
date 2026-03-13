@@ -16,6 +16,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 
 data class HomeUiState(
     val feeds: ImmutableList<FeedUiItem> = persistentListOf(),
@@ -24,6 +33,9 @@ data class HomeUiState(
     val selectedFeedId: Long? = null,
     val isRefreshing: Boolean = false,
     val snackbarMessage: String? = null,
+    val isPrefetching:    Boolean  = false,
+    val prefetchProgress: Int      = 0,
+    val prefetchTotal:    Int      = 0,
 )
 
 @HiltViewModel
@@ -81,7 +93,24 @@ class HomeViewModel @Inject constructor(
                             else "Already up to date"
                         )
                     }
-                    viewModelScope.launch { repository.prefetchRecentArticles() }
+                    viewModelScope.launch {
+                        repository.prefetchRecentArticles(
+                            onProgress = { completed, total ->
+                                _uiState.update {
+                                    it.copy(
+                                        isPrefetching    = completed < total,
+                                        prefetchProgress = completed,
+                                        prefetchTotal    = total
+                                    )
+                                }
+                            }
+                        )
+                        // Prefetch done — clear after 2 seconds so user sees 100% briefly
+                        kotlinx.coroutines.delay(2_000)
+                        _uiState.update {
+                            it.copy(isPrefetching = false, prefetchProgress = 0, prefetchTotal = 0)
+                        }
+                    }
                 }
                 is Result.Error -> {
                     _uiState.update {
@@ -142,4 +171,23 @@ class HomeViewModel @Inject constructor(
         isBookmarked       = isBookmarked,
         scrollPosition     = scrollPosition
     )
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    val searchResults: StateFlow<List<ArticleUiItem>> = _searchQuery
+        .debounce(300)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()) flowOf(emptyList<ArticleUiItem>())
+            else repository.searchArticles(query).map { articles ->
+                articles.map { it.toUiItem() }  // ← Article → ArticleUiItem
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
 }
