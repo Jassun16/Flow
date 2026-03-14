@@ -35,7 +35,9 @@ data class ReaderUiState(
     val isBookmarked: Boolean = false,
     val summary: String? = null,
     val isSummarizing: Boolean = false,
-    val snackbarMessage: String? = null
+    val isDownloadingModel: Boolean = false,
+    val isDownloadProgress: Float = 0f,
+    val snackbarMessage: String? = null,
 )
 
 @HiltViewModel
@@ -221,6 +223,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun generateSummary() {
+        android.util.Log.d("GeminiNano", "generateSummary() called")
         val content = _uiState.value.fullContent ?: return
         if (_uiState.value.isSummarizing) return   // prevent double-tap
 
@@ -254,10 +257,19 @@ class ReaderViewModel @Inject constructor(
                     return@launch
                 }
                 is SummarizerReadyState.Downloading -> {
-                    _uiState.update {
-                        it.copy(snackbarMessage = "Downloading AI model (~300 MB), please wait…")
+                    // Model not downloaded yet — download it now
+                    viewModelScope.launch {
+                        _uiState.update { it.copy(isDownloadingModel = true, isDownloadProgress = 0f) }
+                        val success = geminiNanoSummarizer.downloadModel { progress ->
+                            _uiState.update { it.copy(isDownloadProgress = progress) }
+                        }
+                        _uiState.update { it.copy(isDownloadingModel = false, isSummarizing = false) }
+                        if (success) {
+                            _uiState.update { it.copy(snackbarMessage = "AI model ready! Tap Summarize again.") }
+                        } else {
+                            _uiState.update { it.copy(snackbarMessage = "Download failed. Check your connection.") }
+                        }
                     }
-                    // isSummarizing stays true — spinner remains while download completes
                     return@launch
                 }
                 is SummarizerReadyState.Error -> {
@@ -294,11 +306,17 @@ class ReaderViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(isSummarizing = false) }
             } catch (e: Exception) {
+                android.util.Log.e("GeminiNano", "summarize() failed", e)
+                android.util.Log.e("GeminiNano", "Message: ${e.message}")
+                android.util.Log.e("GeminiNano", "Cause: ${e.cause?.message}")
+                android.util.Log.e("GeminiNano", "Cause2: ${e.cause?.cause?.message}")
+                android.util.Log.e("GeminiNano", "Class: ${e.javaClass.name}")
                 val fullError = buildString {
                     append(e.message ?: "")
                     append(e.cause?.message ?: "")
                     append(e.cause?.cause?.message ?: "")
                 }
+                // ... rest of your existing when{} block unchanged
                 val userMessage = when {
                     fullError.contains("FEATURE_NOT_FOUND", ignoreCase = true) ||
                             fullError.contains("606", ignoreCase = true) ->

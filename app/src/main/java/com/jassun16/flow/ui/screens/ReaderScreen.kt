@@ -24,6 +24,8 @@ import com.jassun16.flow.util.HapticUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun ReaderScreen(
@@ -183,57 +185,103 @@ fun ReaderScreen(
                     )
                     .padding(top = 8.dp)
             ) {
-                Row(
-                    modifier          = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
-                    }
-                    Spacer(Modifier.weight(1f))
-
-                    IconButton(onClick = { viewModel.generateSummary() }) {
-                        if (uiState.isSummarizing) {
-                            CircularProgressIndicator(
-                                modifier    = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
+                Column {
+                    // ── Icon row (unchanged) ─────────────────────────────────────
+                    Row(
+                        modifier          = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBack) {
                             Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = "Summarize",
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = if (isDark) Color.White else Color.Black
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+
+                        IconButton(onClick = { viewModel.generateSummary() }) {
+                            if (uiState.isSummarizing) {
+                                CircularProgressIndicator(
+                                    modifier    = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = "Summarize",
+                                    tint = if (isDark) Color.White else Color.Black
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = {
+                            if (uiState.isBookmarked) HapticUtils.click(context)
+                            else HapticUtils.bookmarkOn(context)
+                            viewModel.toggleBookmark()
+                        }) {
+                            Icon(
+                                if (uiState.isBookmarked) Icons.Default.Bookmark
+                                else Icons.Default.BookmarkBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (uiState.isBookmarked)
+                                    MaterialTheme.colorScheme.primary
+                                else if (isDark) Color.White else Color.Black
+                            )
+                        }
+
+                        IconButton(onClick = { viewModel.shareArticle(context) }) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = "Share",
                                 tint = if (isDark) Color.White else Color.Black
                             )
                         }
                     }
 
-                    IconButton(onClick = {
-                        if (uiState.isBookmarked) HapticUtils.click(context)
-                        else HapticUtils.bookmarkOn(context)
-                        viewModel.toggleBookmark() }) {
-                        Icon(
-                            if (uiState.isBookmarked) Icons.Default.Bookmark
-                            else Icons.Default.BookmarkBorder,
-                            contentDescription = "Bookmark",
-                            tint = if (uiState.isBookmarked)
-                                MaterialTheme.colorScheme.primary
-                            else if (isDark) Color.White else Color.Black
-                        )
-                    }
-
-                    IconButton(onClick = { viewModel.shareArticle(context) }) {
-                        Icon(
-                            Icons.Default.Share,
-                            contentDescription = "Share",
-                            tint = if (isDark) Color.White else Color.Black
-                        )
+                    // ── Model download progress (only visible during download) ───
+                    AnimatedVisibility(visible = uiState.isDownloadingModel) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text  = "Downloading AI model…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isDark)
+                                        Color.White.copy(alpha = 0.7f)
+                                    else Color.Black.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text  = "${(uiState.isDownloadProgress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isDark)
+                                        Color.White.copy(alpha = 0.7f)
+                                    else Color.Black.copy(alpha = 0.7f)
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress  = { uiState.isDownloadProgress },
+                                modifier  = Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .clip(RoundedCornerShape(1.dp)),
+                                color     = if (isDark) Color.White
+                                else MaterialTheme.colorScheme.primary,
+                                trackColor = if (isDark)
+                                    Color.White.copy(alpha = 0.2f)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
                     }
                 }
             }
