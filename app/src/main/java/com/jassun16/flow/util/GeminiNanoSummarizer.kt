@@ -29,94 +29,41 @@ class GeminiNanoSummarizer @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private const val MODEL_FILENAME = "gemma3-1b-it-int4.bin"
-        private const val MODEL_URL      =
-            "https://storage.googleapis.com/mediapipe-models/llm_inference/gemma3-1b-it-int4/float32/1/gemma3-1b-it-int4.bin"
+        private const val MODEL_FILENAME = "gemma3-1b-it-int4.task"
     }
 
-    private val mutex                        = Mutex()
-    private var llmInference: LlmInference?  = null
-    private var llmSession: LlmInferenceSession? = null
+    private val mutex = Mutex()
+    private var llmInference: LlmInference? = null
 
-    // ── Model file path in app private storage ────────────────────────────
+    // Track active session so close() can safely tear it down before closing the engine
+    @Volatile
+    private var currentSession: LlmInferenceSession? = null
+
     private val modelFile: File
         get() = File(context.filesDir, MODEL_FILENAME)
 
-    // ── Check if model is already downloaded ──────────────────────────────
     fun isModelDownloaded(): Boolean =
         modelFile.exists() && modelFile.length() > 100_000_000L
 
-    // ── Download model with progress (0.0–1.0) ────────────────────────────
-    suspend fun downloadModel(
-        onProgress: (Float) -> Unit
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val request  = okhttp3.Request.Builder().url(MODEL_URL).build()
-            val client   = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS) // no read timeout for large file
-                .build()
-            val response = client.newCall(request).execute()
-
-            if (!response.isSuccessful) {
-                android.util.Log.e("GeminiNano", "Download HTTP ${response.code}: ${response.message}")
-                return@withContext false
-            }
-
-            val body       = response.body ?: return@withContext false
-            val totalBytes = body.contentLength()
-            val tmpFile    = File(context.filesDir, "$MODEL_FILENAME.tmp")
-            var downloaded = 0L
-
-            body.byteStream().use { input ->
-                tmpFile.outputStream().use { output ->
-                    val buffer = ByteArray(8192)
-                    var bytes: Int
-                    while (input.read(buffer).also { bytes = it } != -1) {
-                        output.write(buffer, 0, bytes)
-                        downloaded += bytes
-                        if (totalBytes > 0) onProgress(downloaded.toFloat() / totalBytes)
-                    }
-                }
-            }
-            tmpFile.renameTo(modelFile)
-            true
-        } catch (e: Exception) {
-            android.util.Log.e("GeminiNano", "Model download failed", e)
-            false
-        }
-    }
-
-    // ── Load engine + session (mutex-protected — never two instances) ──────
-    private suspend fun getOrCreateSession(): LlmInferenceSession {
+    private suspend fun getOrCreateInference(): LlmInference {
         return mutex.withLock {
-            llmSession ?: run {
-                val inferenceOptions = LlmInferenceOptions.builder()
+            llmInference ?: withContext(Dispatchers.IO) {
+                val options = LlmInferenceOptions.builder()
                     .setModelPath(modelFile.absolutePath)
-                    .setMaxTokens(512)
-                    .setMaxTopK(40)   // ← max allowed topK ceiling on engine level
+                    .setMaxTokens(2048)
+                    .setMaxTopK(40)
                     .build()
-
-                val engine = LlmInference.createFromOptions(context, inferenceOptions)
+                LlmInference.createFromOptions(context, options)
                     .also { llmInference = it }
-
-                val sessionOptions = LlmInferenceSessionOptions.builder()
-                    .setTopK(40)
-                    .setTemperature(0.2f)
-                    .build()
-
-                LlmInferenceSession.createFromOptions(engine, sessionOptions)
-                    .also { llmSession = it }
             }
         }
     }
 
-    // ── Status check ──────────────────────────────────────────────────────
     suspend fun checkAndPrepare(): SummarizerReadyState {
         return withContext(Dispatchers.IO) {
             try {
-                if (!isModelDownloaded()) return@withContext SummarizerReadyState.Downloading
-                getOrCreateSession()
+                if (!isModelDownloaded()) return@withContext SummarizerReadyState.Unavailable
+                getOrCreateInference()
                 SummarizerReadyState.Ready
             } catch (e: Exception) {
                 android.util.Log.e("GeminiNano", "checkAndPrepare failed", e)
@@ -125,41 +72,56 @@ class GeminiNanoSummarizer @Inject constructor(
         }
     }
 
-    // ── Streaming inference ───────────────────────────────────────────────
     fun summarize(plainText: String): Flow<String> = callbackFlow {
+        val inference = getOrCreateInference()
+
+        val prompt = """
+            <start_of_turn>user
+            Summarize the following article in exactly 3 concise bullet points.
+            Each bullet must start with •
+            Be factual and direct. No introduction, no conclusion.
+
+            Article:
+            ${plainText.take(3000)}
+            <end_of_turn>
+            <start_of_turn>model
+        """.trimIndent()
+
+        val sessionOptions = LlmInferenceSessionOptions.builder()
+            .setTopK(40)
+            .setTemperature(0.2f)
+            .build()
+
+        val session = withContext(Dispatchers.IO) {
+            LlmInferenceSession.createFromOptions(inference, sessionOptions)
+                .also { currentSession = it }  // track for safe cleanup
+        }
+
         withContext(Dispatchers.IO) {
-            try {
-                val session  = getOrCreateSession()
-                val safeText = plainText.take(3000)
-                val prompt   = """<start_of_turn>user
-Summarize the following article in exactly 3 concise bullet points.
-Each bullet must start with •
-Be factual and direct. No introduction, no conclusion.
-
-Article:
-$safeText
-<end_of_turn>
-<start_of_turn>model
-""".trimIndent()
-
-                // Session API: add query chunk first, then generate
-                session.addQueryChunk(prompt)
-                session.generateResponseAsync { partialResult: String, done: Boolean ->
-                    if (partialResult.isNotEmpty()) trySend(partialResult)
-                    if (done) close()
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("GeminiNano", "Inference failed", e)
-                close(e)
+            session.addQueryChunk(prompt)
+            session.generateResponseAsync { partialResult: String, done: Boolean ->
+                android.util.Log.d("GeminiNano", "Token: '${partialResult.take(20)}' done=$done")
+                if (partialResult.isNotEmpty()) trySend(partialResult)
+                if (done) close()  // ← channel close ONLY — no session.close() here
             }
         }
-        awaitClose { }
+
+        // Session is always closed here — whether flow completes, errors, or is cancelled
+        awaitClose {
+            try {
+                currentSession?.close()
+                currentSession = null
+            } catch (_: Exception) { }
+        }
     }
 
-    // ── Only close on ViewModel cleared — never between articles ──────────
+    // Called from ViewModel.onCleared() — session is always closed first via awaitClose
     fun close() {
-        llmSession?.close()
-        llmSession   = null
+        // Close active session first before engine — prevents native crash
+        try {
+            currentSession?.close()
+            currentSession = null
+        } catch (_: Exception) { }
         llmInference?.close()
         llmInference = null
     }

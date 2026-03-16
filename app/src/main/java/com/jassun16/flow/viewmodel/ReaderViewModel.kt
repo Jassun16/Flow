@@ -24,6 +24,7 @@ import javax.inject.Inject
 import com.jassun16.flow.data.network.ReadingTimeCalculator
 import com.jassun16.flow.util.GeminiNanoSummarizer
 import com.jassun16.flow.util.SummarizerReadyState
+import kotlinx.coroutines.CancellationException
 
 
 data class ReaderUiState(
@@ -257,18 +258,11 @@ class ReaderViewModel @Inject constructor(
                     return@launch
                 }
                 is SummarizerReadyState.Downloading -> {
-                    // Model not downloaded yet — download it now
-                    viewModelScope.launch {
-                        _uiState.update { it.copy(isDownloadingModel = true, isDownloadProgress = 0f) }
-                        val success = geminiNanoSummarizer.downloadModel { progress ->
-                            _uiState.update { it.copy(isDownloadProgress = progress) }
-                        }
-                        _uiState.update { it.copy(isDownloadingModel = false, isSummarizing = false) }
-                        if (success) {
-                            _uiState.update { it.copy(snackbarMessage = "AI model ready! Tap Summarize again.") }
-                        } else {
-                            _uiState.update { it.copy(snackbarMessage = "Download failed. Check your connection.") }
-                        }
+                    _uiState.update {
+                        it.copy(
+                            isSummarizing = false,
+                            snackbarMessage = "Model not installed. Please install via ADB."
+                        )
                     }
                     return@launch
                 }
@@ -284,6 +278,9 @@ class ReaderViewModel @Inject constructor(
                             "Gemini Nano is not available on this device."
                         fullError.contains("PREPARATION_ERROR", ignoreCase = true) ->
                             "Gemini Nano is not ready yet. Try again in a few minutes."
+                        fullError.contains("tflite", ignoreCase = true) ||
+                                fullError.contains("model_data", ignoreCase = true) ->
+                            "Model format error — please reinstall the app or update."
                         else ->
                             "Could not start summarization. Please try again."
                     }
@@ -299,24 +296,26 @@ class ReaderViewModel @Inject constructor(
             }
 
             // Stream tokens into summary — user sees bullets build live
+            // Stream tokens into summary — user sees bullets build live
             try {
                 geminiNanoSummarizer.summarize(plainText).collect { token ->
                     val current = _uiState.value.summary ?: ""
                     _uiState.update { it.copy(summary = current + token) }
                 }
-                _uiState.update { it.copy(isSummarizing = false) }
+            } catch (e: CancellationException) {
+                // Reader was closed mid-summary — normal coroutine cancellation, not an error
+                // Must rethrow so viewModelScope cleans up correctly
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("GeminiNano", "summarize() failed", e)
                 android.util.Log.e("GeminiNano", "Message: ${e.message}")
                 android.util.Log.e("GeminiNano", "Cause: ${e.cause?.message}")
-                android.util.Log.e("GeminiNano", "Cause2: ${e.cause?.cause?.message}")
                 android.util.Log.e("GeminiNano", "Class: ${e.javaClass.name}")
                 val fullError = buildString {
                     append(e.message ?: "")
                     append(e.cause?.message ?: "")
                     append(e.cause?.cause?.message ?: "")
                 }
-                // ... rest of your existing when{} block unchanged
                 val userMessage = when {
                     fullError.contains("FEATURE_NOT_FOUND", ignoreCase = true) ||
                             fullError.contains("606", ignoreCase = true) ->
@@ -325,15 +324,16 @@ class ReaderViewModel @Inject constructor(
                         "Gemini Nano is not available on this device."
                     fullError.contains("PREPARATION_ERROR", ignoreCase = true) ->
                         "Gemini Nano is not ready yet. Try again in a few minutes."
+                    fullError.contains("tflite", ignoreCase = true) ||
+                            fullError.contains("model_data", ignoreCase = true) ->
+                        "Model format error — please reinstall the app or update."
                     else ->
                         "Summarization failed. Please try again."
                 }
-                _uiState.update {
-                    it.copy(
-                        isSummarizing   = false,
-                        snackbarMessage = userMessage
-                    )
-                }
+                _uiState.update { it.copy(snackbarMessage = userMessage) }
+            } finally {
+                // Always runs — success, error, or cancellation — spinner always stops
+                _uiState.update { it.copy(isSummarizing = false) }
             }
         }
     }

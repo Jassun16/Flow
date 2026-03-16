@@ -104,7 +104,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.7")
 
     // ── Gemini Nano (on-device AI) ────────────────────────────
-    implementation("com.google.mediapipe:tasks-genai:0.10.25")
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
 
     implementation("androidx.compose.material:material-icons-extended")
 
