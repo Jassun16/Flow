@@ -374,9 +374,9 @@ private fun buildReaderHtml(
             }
             .article-meta .source { color: $linkColor; font-weight: 600; }
             .section-divider { border: none; border-top: 1px solid $divColor; margin: 0 0 22px 0; }
-            .summary-card { background: $summaryBg; border-radius: 12px; padding: 14px 16px; margin-bottom: 24px; }
+            .summary-card { background: ${'$'}summaryBg; border-radius: 12px; padding: 14px 16px 22px 16px; margin-bottom: 24px; }
             .summary-label { font-family: -apple-system, system-ui, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: $summaryClr; margin-bottom: 7px; }
-            .summary-body { font-family: -apple-system, system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: $summaryClr; }
+            .summary-body { font-family: -apple-system, system-ui, sans-serif; font-size: 15px; line-height: 1.6; color: $summaryClr; padding-left: 4px; }
             p { margin: 0 0 20px 0; }
             h1, h2, h3, h4, h5, h6 { font-family: -apple-system, system-ui, sans-serif; color: $headColor; line-height: 1.3; letter-spacing: -0.2px; margin: 30px 0 10px 0; }
             h1 { font-size: 22px; font-weight: 700; }

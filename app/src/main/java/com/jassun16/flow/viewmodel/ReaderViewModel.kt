@@ -39,6 +39,7 @@ data class ReaderUiState(
     val isDownloadingModel: Boolean = false,
     val isDownloadProgress: Float = 0f,
     val snackbarMessage: String? = null,
+    val summaryBuffer: String = "",  // accumulates tokens — does NOT trigger WebView rebuild
 )
 
 @HiltViewModel
@@ -226,12 +227,11 @@ class ReaderViewModel @Inject constructor(
     fun generateSummary() {
         android.util.Log.d("GeminiNano", "generateSummary() called")
         val content = _uiState.value.fullContent ?: return
-        if (_uiState.value.isSummarizing) return   // prevent double-tap
+        if (_uiState.value.isSummarizing) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSummarizing = true, summary = null) }
+            _uiState.update { it.copy(isSummarizing = true, summary = null, summaryBuffer = "") }
 
-            // Strip HTML → plain text
             val plainText = content
                 .replace(Regex("<[^>]+>"), " ")
                 .replace(Regex("\\s+"), " ")
@@ -260,16 +260,14 @@ class ReaderViewModel @Inject constructor(
                 is SummarizerReadyState.Downloading -> {
                     _uiState.update {
                         it.copy(
-                            isSummarizing = false,
+                            isSummarizing   = false,
                             snackbarMessage = "Model not installed. Please install via ADB."
                         )
                     }
                     return@launch
                 }
                 is SummarizerReadyState.Error -> {
-                    val fullError = buildString {
-                        append(state.message)
-                    }
+                    val fullError = buildString { append(state.message) }
                     val userMessage = when {
                         fullError.contains("FEATURE_NOT_FOUND", ignoreCase = true) ||
                                 fullError.contains("606", ignoreCase = true) ->
@@ -292,19 +290,36 @@ class ReaderViewModel @Inject constructor(
                     }
                     return@launch
                 }
-                is SummarizerReadyState.Ready -> Unit   // fall through to inference
+                is SummarizerReadyState.Ready -> Unit
             }
 
-            // Stream tokens into summary — user sees bullets build live
-            // Stream tokens into summary — user sees bullets build live
             try {
+                var lastUiUpdate = 0L
+                val updateIntervalMs = 300L
+
                 geminiNanoSummarizer.summarize(plainText).collect { token ->
-                    val current = _uiState.value.summary ?: ""
-                    _uiState.update { it.copy(summary = current + token) }
+                    val buffered = (_uiState.value.summaryBuffer) + token
+                    val now = System.currentTimeMillis()
+
+                    if (now - lastUiUpdate >= updateIntervalMs) {
+                        // During streaming — push plain text to WebView, no <br> conversion yet
+                        _uiState.update { it.copy(summary = buffered, summaryBuffer = buffered) }
+                        lastUiUpdate = now
+                    } else {
+                        // Accumulate silently — no WebView rebuild
+                        _uiState.update { it.copy(summaryBuffer = buffered) }
+                    }
                 }
+
+// Final flush only — clean bullets + convert newlines to <br> once generation completes
+                val cleanSummary = _uiState.value.summaryBuffer
+                    .replace(Regex("(?m)^\\* "), "• ")
+                    .replace(Regex("(?m)^\\*\t"), "• ")
+                    .trim()
+                    .replace("\n", "<br>")
+                _uiState.update { it.copy(summary = cleanSummary, summaryBuffer = "") }
+
             } catch (e: CancellationException) {
-                // Reader was closed mid-summary — normal coroutine cancellation, not an error
-                // Must rethrow so viewModelScope cleans up correctly
                 throw e
             } catch (e: Exception) {
                 android.util.Log.e("GeminiNano", "summarize() failed", e)
@@ -332,7 +347,6 @@ class ReaderViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(snackbarMessage = userMessage) }
             } finally {
-                // Always runs — success, error, or cancellation — spinner always stops
                 _uiState.update { it.copy(isSummarizing = false) }
             }
         }
