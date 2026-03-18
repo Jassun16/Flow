@@ -12,7 +12,8 @@ object ReadingTimeCalculator {
 
     // Overload for full article text strings
     fun calculateFromText(text: String): Int {
-        val wordCount = text.trim().split(Regex("\\s+")).size
+        val plainText = text.replace(Regex("<[^>]+>"), " ")
+        val wordCount = plainText.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.size
         return calculate(wordCount)
     }
 }

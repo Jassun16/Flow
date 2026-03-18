@@ -119,7 +119,7 @@ fun ArticleCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text  = "${article.readingTimeMinutes} min read",
+                                text = "${if (article.isReadingTimeEstimated) "~" else ""}${article.readingTimeMinutes} min read",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -193,14 +193,8 @@ class FlowRepository @Inject constructor(
                 val readable = readabilityFetcher.fetch(article.url)
                 if (readable.success) {
                     articleDao.saveFullContent(article.id, readable.content)
-                    val updatedReadTime = ReadingTimeCalculator
-                        .calculateFromText(readable.content)
-                    articleDao.updateArticle(
-                        article.copy(
-                            fullContent        = readable.content,
-                            readingTimeMinutes = updatedReadTime
-                        )
-                    )
+                    val updatedReadTime = ReadingTimeCalculator.calculateFromText(readable.content)
+                    articleDao.updateReadingTime(article.id, updatedReadTime)
                     Result.Success(readable.content)
                 } else {
                     Result.Error("Could not load reader mode. Tap to open in browser view")

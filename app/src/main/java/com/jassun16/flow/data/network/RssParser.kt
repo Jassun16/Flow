@@ -236,9 +236,10 @@ class RssParser @Inject constructor() {
                                 Log.d("RssParser", "Extracted from description: ${extractImageFromHtml(description)}")
                                 // ──────────────────────────────────────────────────────
 
-                                val cleanDescription = cleanText(description)
-                                val cleanExcerpt     = cleanDescription.take(250)
-                                val wordCount        = cleanDescription
+                                val cleanDescription   = cleanText(description)
+                                val cleanExcerpt       = cleanDescription.take(250)
+                                val textForReadingTime = if (contentEncoded.isNotEmpty()) contentEncoded else description
+                                val wordCount          = cleanText(textForReadingTime)
                                     .trim()
                                     .split(Regex("\\s+"))
                                     .filter { it.isNotEmpty() }

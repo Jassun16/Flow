@@ -374,6 +374,7 @@ class ReaderViewModel @Inject constructor(
         readingTimeMinutes = readingTimeMinutes,
         isRead             = isRead,
         isBookmarked       = isBookmarked,
-        scrollPosition     = scrollPosition
+        scrollPosition     = scrollPosition,
+        isReadingTimeEstimated = fullContent == null
     )
 }

@@ -24,5 +24,6 @@ data class ArticleUiItem(
     val readingTimeMinutes: Int,
     val isRead: Boolean,
     val isBookmarked: Boolean,
-    val scrollPosition: Int
+    val scrollPosition: Int,
+    val isReadingTimeEstimated: Boolean
 )
