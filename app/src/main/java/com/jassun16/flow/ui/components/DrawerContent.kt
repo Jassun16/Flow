@@ -52,13 +52,24 @@ fun DrawerContent(
             // ── All Articles ───────────────────────────────────────────
             item {
                 NavigationDrawerItem(
-                    // ✅ Correct
                     icon = {
-                        Icon(Icons.Default.DynamicFeed,
-                            contentDescription = null)
+                        Icon(Icons.Default.DynamicFeed, contentDescription = null)
                     },
-
                     label = { Text("All Articles") },
+                    badge = {
+                        val totalUnread = feeds.sumOf { it.unreadCount }
+                        if (totalUnread > 0) {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor   = MaterialTheme.colorScheme.onPrimaryContainer
+                            ) {
+                                Text(
+                                    text  = if (totalUnread > 99) "99+" else totalUnread.toString(),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    },
                     selected = selectedFeedId == null,
                     onClick  = onAllArticlesClick,
                     modifier = Modifier.padding(horizontal = 12.dp)
