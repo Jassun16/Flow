@@ -88,11 +88,14 @@ fun ReaderScreen(
 
             uiState.fullContent != null -> {
                 val article = uiState.article
+                val timeAgo = remember(article?.publishedAt) {
+                    article?.let { TimeUtils.timeAgo(it.publishedAt) } ?: ""
+                }
                 val finalHtml = if (article != null) {
                     buildReaderHtml(
                         title       = article.title,
                         feedTitle   = article.feedTitle,
-                        timeAgo     = TimeUtils.timeAgo(article.publishedAt),
+                        timeAgo     = timeAgo,
                         readingTime = article.readingTimeMinutes,
                         summary     = uiState.summary,
                         content     = uiState.fullContent!!,
