@@ -23,9 +23,9 @@ import com.jassun16.flow.ui.components.TimeUtils
 import com.jassun16.flow.util.HapticUtils
 import com.jassun16.flow.viewmodel.ReaderViewModel
 import kotlin.math.abs
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.SideEffect
 
 @Composable
 fun ReaderScreen(
@@ -103,14 +103,16 @@ fun ReaderScreen(
                     )
                 } else ""
 
-                val currentOnBack by rememberUpdatedState(onBack)
-                val gestureDetector = remember {               // no key — created once, never recreated
+                var onBackLatest = onBack
+                        SideEffect { onBackLatest = onBack }
+
+                val gestureDetector = remember {
                     GestureDetector(
                         context,
                         object : GestureDetector.SimpleOnGestureListener() {
                             override fun onDoubleTap(e: MotionEvent): Boolean {
                                 HapticUtils.doubleClick(context)
-                                currentOnBack()                // reads latest onBack via State every time
+                                onBackLatest()
                                 return true
                             }
                         }
