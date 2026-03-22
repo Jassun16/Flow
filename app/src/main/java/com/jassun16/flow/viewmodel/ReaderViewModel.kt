@@ -96,12 +96,6 @@ class ReaderViewModel @Inject constructor(
 
                 val tier23      = ArticleExtractor.cleanHtml(finalHtml, article.url)
                 val cleanedHtml = ContentCleaner.clean(tier23)
-
-                // ── TEMP DEBUG — remove after diagnosis ──
-               // android.util.Log.d("FlowImageDebug", cleanedHtml.take(8000))
-                // ─────────────────────────────────────────
-
-                // ── ADD THIS: recalculate reading time from actual clean content ──
                 val plainText       = cleanedHtml.replace(Regex("<[^>]+>"), " ").trim()
                 val accurateMinutes = ReadingTimeCalculator.calculateFromText(plainText)
                 repository.updateReadingTime(articleId, accurateMinutes)
@@ -225,8 +219,8 @@ class ReaderViewModel @Inject constructor(
     }
 
     fun generateSummary() {
-        android.util.Log.d("GeminiNano", "generateSummary() called")
-        val content = _uiState.value.fullContent ?: return
+        val content = _uiState.value.fullContent
+        content ?: return
         if (_uiState.value.isSummarizing) return
 
         viewModelScope.launch {

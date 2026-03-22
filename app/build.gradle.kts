@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,9 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+val localProps = Properties()
+localProps.load(rootProject.file("local.properties").inputStream())
 
 android {
     namespace  = "com.jassun16.flow"
@@ -18,11 +23,20 @@ android {
         versionName   = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file(localProps["RELEASE_STORE_FILE"] as String)
+            storePassword = localProps["RELEASE_STORE_PASSWORD"] as String
+            keyAlias      = localProps["RELEASE_KEY_ALIAS"] as String
+            keyPassword   = localProps["RELEASE_KEY_PASSWORD"] as String
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled   = true
             isShrinkResources = true
-            signingConfig     = signingConfigs.getByName("debug")
+            signingConfig     = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -107,5 +121,4 @@ dependencies {
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
 
     implementation("androidx.compose.material:material-icons-extended")
-
 }

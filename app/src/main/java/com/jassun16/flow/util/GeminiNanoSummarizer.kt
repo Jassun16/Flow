@@ -45,6 +45,29 @@ class GeminiNanoSummarizer @Inject constructor(
     fun isModelDownloaded(): Boolean =
         modelFile.exists() && modelFile.length() > 100_000_000L
 
+    private fun copyModelFromDownloads(): Boolean {
+        return try {
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            )
+            val sourceFile = java.io.File(downloadsDir, MODEL_FILENAME)
+            android.util.Log.d("GeminiNano", "Looking for model at: ${sourceFile.absolutePath}")
+            android.util.Log.d("GeminiNano", "Source exists: ${sourceFile.exists()}, size: ${sourceFile.length()}")
+
+            if (!sourceFile.exists()) {
+                android.util.Log.e("GeminiNano", "Model not found in Downloads")
+                return false
+            }
+
+            sourceFile.copyTo(modelFile, overwrite = true)
+            android.util.Log.d("GeminiNano", "Model copied! New size: ${modelFile.length()}")
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("GeminiNano", "Copy failed", e)
+            false
+        }
+    }
+
     private suspend fun getOrCreateInference(): LlmInference {
         return mutex.withLock {
             llmInference ?: withContext(Dispatchers.IO) {
@@ -61,8 +84,14 @@ class GeminiNanoSummarizer @Inject constructor(
 
     suspend fun checkAndPrepare(): SummarizerReadyState {
         return withContext(Dispatchers.IO) {
+            android.util.Log.d("GeminiNano", "checkAndPrepare() — model exists: ${modelFile.exists()}, size: ${modelFile.length()}")
             try {
-                if (!isModelDownloaded()) return@withContext SummarizerReadyState.Unavailable
+                if (!isModelDownloaded()) {
+                    val copied = copyModelFromDownloads()
+                    if (!copied || !isModelDownloaded()) {
+                        return@withContext SummarizerReadyState.Unavailable
+                    }
+                }
                 getOrCreateInference()
                 SummarizerReadyState.Ready
             } catch (e: Exception) {
